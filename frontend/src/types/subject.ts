@@ -4,12 +4,4 @@ export interface Subject {
     dayOfWeek: string;
     startTime: string;
     endTime: string;
-    required: boolean;
-}
-
-export interface TimetableSlot {
-    dayOfWeek: string;
-    startTime: string;
-    endTime: string;
-    subject: Subject;
 }
