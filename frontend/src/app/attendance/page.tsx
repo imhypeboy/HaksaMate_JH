@@ -66,7 +66,7 @@ export default function AttendancePage() {
             {
                 id: "2",
                 name: "웹프로그래밍",
-                professor: "이교수",
+                professor: "교수",
                 room: "IT-205",
                 schedule: "화,목 11:00-12:30",
                 totalClasses: 15,
