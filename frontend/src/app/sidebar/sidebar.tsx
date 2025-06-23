@@ -20,6 +20,7 @@ import {
   User,
   Zap,
   Sparkles,
+  Heart,
 } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { useState, useEffect, useCallback, useMemo } from "react"
@@ -69,6 +70,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     () => [
       { label: "시간표", icon: <Calendar size={20} />, path: "/", category: "main" },
       { label: "성적 관리", icon: <GraduationCap size={20} />, path: "/grades", category: "main" },
+      { label: "매칭하기", icon: <Heart size={20} />, path: "/matching", category: "main" },
       { label: "시험 일정", icon: <BookOpen size={20} />, path: "/exams", category: "main" },
       { label: "출석 관리", icon: <UserCheck size={20} />, path: "/attendance", category: "main" },
       { label: "AI 학습 도우미", icon: <Bot size={20} />, path: "/ai-tutor", category: "main" },
