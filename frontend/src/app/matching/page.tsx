@@ -2,8 +2,9 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Heart, X, User, Sun, Moon, MapPin, Star, Zap, Coffee, Code, Gamepad2, Music, Palette, Film, Shield, BookOpen } from 'lucide-react'
+import { Heart, X, User, Sun, Moon, MapPin, Star, Zap, Coffee, Code, Gamepad2, Music, Palette, Film, Shield, BookOpen, MessageCircle } from 'lucide-react'
 import Sidebar from '../sidebar/sidebar'
+import ChatModal from '../components/ChatModal'
 import './styles.css'
 
 // 상수 분리
@@ -254,13 +255,15 @@ const MatchingPage: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [chatModalOpen, setChatModalOpen] = useState(false)
+  const [chatUserId, setChatUserId] = useState<number | undefined>()
   
   // 드래그 상태
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [dragCurrent, setDragCurrent] = useState({ x: 0, y: 0 })
   
-  const likeRef = useRef(false)
+
 
   // 성능 최적화된 프로필 데이터
   const profiles: Profile[] = useMemo(() => [
@@ -330,12 +333,14 @@ const MatchingPage: React.FC = () => {
       
       if (Math.abs(currentDragX) > DRAG_THRESHOLD) {
         if (currentDragX > 0) {
-                     // Like 로직
-           setExitX(SWIPE_VELOCITY)
-           likeRef.current = !likeRef.current
+          // Like 로직
+          setExitX(SWIPE_VELOCITY)
+          
+          // 100% 매칭 성공
+          const isMatch = true
           
           setTimeout(() => {
-            if (likeRef.current) {
+            if (isMatch) {
               setShowMatch(true)
             }
             setIndex((prev) => prev + 1)
@@ -386,10 +391,12 @@ const MatchingPage: React.FC = () => {
   const handleLike = useCallback(() => {
     if (isDragging) return
     setExitX(SWIPE_VELOCITY)
-    likeRef.current = !likeRef.current
+    
+    // 100% 매칭 성공
+    const isMatch = true
     
     setTimeout(() => {
-      if (likeRef.current) {
+      if (isMatch) {
         setShowMatch(true)
       }
       nextProfile()
@@ -444,8 +451,9 @@ const MatchingPage: React.FC = () => {
 
   const gotoChat = useCallback(() => {
     setShowMatch(false)
-    router.push(`/chat/${profile.id}`)
-  }, [router, profile.id])
+    setChatUserId(profile.id)
+    setChatModalOpen(true)
+  }, [profile.id])
 
   const toggleTheme = useCallback(() => {
     setIsDarkMode(prev => !prev)
@@ -474,20 +482,37 @@ const MatchingPage: React.FC = () => {
             매칭하기
           </h1>
           
-          <button
-            onClick={toggleTheme}
-            className={`p-3 rounded-2xl transition-all duration-300 hover:scale-110 active:scale-95 ${
-              isDarkMode 
-                ? 'bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20' 
-                : 'bg-white/80 hover:bg-white/90 backdrop-blur-md border border-white/50'
-            } shadow-lg`}
-          >
-            {isDarkMode ? (
-              <Sun size={20} className="text-yellow-300" />
-            ) : (
-              <Moon size={20} className="text-indigo-600" />
-            )}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setChatModalOpen(true)}
+              className={`p-3 rounded-2xl transition-all duration-300 hover:scale-110 active:scale-95 relative ${
+                isDarkMode 
+                  ? 'bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20' 
+                  : 'bg-white/80 hover:bg-white/90 backdrop-blur-md border border-white/50'
+              } shadow-lg`}
+            >
+              <MessageCircle size={20} className={isDarkMode ? 'text-blue-300' : 'text-blue-600'} />
+              {/* 읽지 않은 메시지 알림 */}
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                3
+              </div>
+            </button>
+            
+            <button
+              onClick={toggleTheme}
+              className={`p-3 rounded-2xl transition-all duration-300 hover:scale-110 active:scale-95 ${
+                isDarkMode 
+                  ? 'bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20' 
+                  : 'bg-white/80 hover:bg-white/90 backdrop-blur-md border border-white/50'
+              } shadow-lg`}
+            >
+              {isDarkMode ? (
+                <Sun size={20} className="text-yellow-300" />
+              ) : (
+                <Moon size={20} className="text-indigo-600" />
+              )}
+            </button>
+          </div>
         </header>
 
         {/* Main Content */}
@@ -548,16 +573,40 @@ const MatchingPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Enhanced Match Success Modal */}
+        {/* Enhanced Match Success Modal - 완전 모바일 최적화 */}
         {showMatch && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-50" 
-               style={{ animation: 'fadeIn 0.3s ease-out' }}>
-            <div className={`rounded-3xl p-8 max-w-sm w-full shadow-2xl transition-all duration-700 ${
-              isDarkMode 
-                ? 'bg-gray-800/95 backdrop-blur-2xl border border-white/20' 
-                : 'bg-white/95 backdrop-blur-2xl border border-white/60'
-            }`}
-            style={{ animation: 'zoomIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+          <div 
+            className="fixed top-0 left-0 w-full h-full bg-black/60 backdrop-blur-sm z-[99999]" 
+            style={{ 
+              animation: 'fadeIn 0.3s ease-out',
+              position: 'fixed',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+              boxSizing: 'border-box'
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowMatch(false)
+              }
+            }}
+          >
+            <div 
+              className={`rounded-3xl p-6 w-full shadow-2xl transition-all duration-700 ${
+                isDarkMode 
+                  ? 'bg-gray-800/98 backdrop-blur-2xl border border-white/20' 
+                  : 'bg-white/98 backdrop-blur-2xl border border-white/60'
+              }`}
+              style={{ 
+                animation: 'zoomIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                maxWidth: '400px',
+                maxHeight: '80vh',
+                overflow: 'auto',
+                margin: '0 auto'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="text-center space-y-6">
                 <div className="relative mx-auto w-20 h-20">
                   <div className="w-20 h-20 bg-gradient-to-br from-pink-400 to-red-400 rounded-full flex items-center justify-center animate-pulse">
@@ -580,7 +629,10 @@ const MatchingPage: React.FC = () => {
                 
                 <div className="flex gap-3">
                   <button
-                    onClick={() => setShowMatch(false)}
+                    onClick={() => {
+                      setShowMatch(false)
+                      // 모달만 닫고 프로필은 유지
+                    }}
                     className={`flex-1 py-3 px-4 rounded-2xl font-medium transition-all duration-300 hover:scale-105 active:scale-95 ${
                       isDarkMode 
                         ? 'bg-white/10 hover:bg-white/20 text-white border border-white/20' 
@@ -599,10 +651,18 @@ const MatchingPage: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
-      </div>
-    </>
-  )
-}
+                  )}
+        </div>
 
-export default MatchingPage
+        {/* Chat Modal */}
+        <ChatModal
+          isOpen={chatModalOpen}
+          onClose={() => setChatModalOpen(false)}
+          initialUserId={chatUserId}
+          isDarkMode={isDarkMode}
+        />
+      </>
+    )
+  }
+  
+  export default MatchingPage
