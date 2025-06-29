@@ -32,7 +32,7 @@ export default function SubjectList({
             </ul>
         );
     }
-
+    
     return (
         <ul className="space-y-2">
             {subjects.map((subject) => (

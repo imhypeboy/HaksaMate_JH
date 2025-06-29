@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback,useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
 export type Subject = {
@@ -126,6 +126,13 @@ export const useSubjects = (userId: string | null) => {
     }
   }, [userId, loadSubjects])
 
+
+  useEffect(() => {
+    if (userId) {
+      loadSubjects(userId);
+    }
+  }, [userId, loadSubjects]);
+  
   return {
     subjects,
     isLoading,

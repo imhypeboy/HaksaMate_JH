@@ -3,13 +3,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Send, Smile, Heart, User, MoreVertical } from 'lucide-react'
-
+import { useChat,useChatRooms} from '@/hooks/useChat'
+import { supabase } from "@/lib/supabaseClient"
 interface Message {
   id: number
   text: string
-  sender: 'me' | 'other'
+  sender: 'chatUsr1' | 'chatUser2'
   timestamp: Date
-  type: 'text' | 'emoji'
 }
 
 interface ChatUser {
@@ -18,102 +18,28 @@ interface ChatUser {
   nickname: string
   isOnline: boolean
 }
-
+interface ChatRoom {
+  chatroomId: number;
+  chatUsr1Id: string;      // UUID
+  chatUsr1Name: string;
+  chatUsr2Name: string;
+  chatUsr2Id: string;      // UUID
+  createdAt: number;       // timestamp (int, long)
+}
 const ChatPage: React.FC = () => {
   const router = useRouter()
   const params = useParams()
-  const userId = params.id as string
-  
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: "안녕하세요! 매칭되어서 반가워요! 😊",
-      sender: 'other',
-      timestamp: new Date(Date.now() - 300000),
-      type: 'text'
-    },
-    {
-      id: 2,
-      text: "안녕하세요! 저도 반가워요!",
-      sender: 'me',
-      timestamp: new Date(Date.now() - 240000),
-      type: 'text'
-    },
-    {
-      id: 3,
-      text: "어떤 취미를 가지고 계신가요?",
-      sender: 'other',
-      timestamp: new Date(Date.now() - 180000),
-      type: 'text'
-    }
-  ])
-  
+  const myUserId=params.id as string
+  const chatRoomId = params.chatRoomId as string; 
   const [newMessage, setNewMessage] = useState('')
   const [isDarkMode, setIsDarkMode] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  
-  // 가짜 사용자 데이터 (실제로는 API에서 가져와야 함)
-  const chatUser: ChatUser = {
-    id: parseInt(userId),
-    name: userId === '1' ? '배고픈 춘식이' : userId === '2' ? '행복한 라이언' : '코딩하는 어피치',
-    nickname: userId === '1' ? 'HHHLL' : userId === '2' ? 'HAPPY' : 'CODE_PEACH',
-    isOnline: true
-  }
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([])
+  // useChat 훅 사용
+  const {deleteRoom,rooms,isRoomsLoading,createRoom,loadRooms} =useChatRooms(myUserId)  
+  const { messages, isMessagesLoading, loadMessages, sendMessage } = useChat(chatRoomId, myUserId)
 
-  // 자동 스크롤
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages, scrollToBottom])
-
-  // 메시지 전송
-  const sendMessage = useCallback(() => {
-    if (!newMessage.trim()) return
-    
-    const message: Message = {
-      id: Date.now(),
-      text: newMessage.trim(),
-      sender: 'me',
-      timestamp: new Date(),
-      type: 'text'
-    }
-    
-    setMessages(prev => [...prev, message])
-    setNewMessage('')
-    
-    // 상대방 자동 응답 (시뮬레이션)
-    setTimeout(() => {
-      const responses = [
-        "정말요? 재밌네요! 😄",
-        "저도 그렇게 생각해요!",
-        "오 대박! 👍",
-        "그런가요? 신기하네요!",
-        "ㅎㅎ 맞아요!",
-        "좋은 생각이에요! ✨"
-      ]
-      
-      const autoReply: Message = {
-        id: Date.now() + 1,
-        text: responses[Math.floor(Math.random() * responses.length)],
-        sender: 'other',
-        timestamp: new Date(),
-        type: 'text'
-      }
-      
-      setMessages(prev => [...prev, autoReply])
-    }, 1000 + Math.random() * 2000) // 1-3초 랜덤 딜레이
-  }, [newMessage])
-
-  // 엔터키로 전송
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
-    }
-  }, [sendMessage])
 
   // 시간 포맷팅
   const formatTime = (date: Date) => {
@@ -122,6 +48,90 @@ const ChatPage: React.FC = () => {
       minute: '2-digit',
       hour12: false 
     })
+  }
+
+
+
+  const currentRoom = rooms.find(r => r.chatroomId.toString() === chatRoomId)
+  const opponent = (() => {
+    if (!currentRoom) return null
+    if (currentRoom.chatUsr1Id === myUserId) {
+      return {
+        id: currentRoom.chatUsr2Id,
+        name: currentRoom.chatUsr2Name,
+        nickname: currentRoom.chatUsr2Name // nickname 별도 컬럼 있으면 교체
+      }
+    }
+    return {
+      id: currentRoom.chatUsr1Id,
+      name: currentRoom.chatUsr1Name,
+      nickname: currentRoom.chatUsr1Name // nickname 별도 컬럼 있으면 교체
+    }
+  })()
+
+    // 최초 메시지 로딩
+  useEffect(() => {
+      loadRooms();
+      loadMessages();
+    }, [loadRooms,loadMessages])
+      // 스크롤 항상 하단으로
+  useEffect(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+        }
+  }, [messages])
+
+  useEffect(() => {
+    // 1. Presence 채널 생성
+    const channel = supabase.channel("chat-presence", {
+      config: { presence: { key: myUserId } }
+    })
+
+    // 2. 참가
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        // presence 입장
+        await channel.track({ user_id: myUserId })
+      }
+    })
+
+    // 3. Presence 업데이트 이벤트 핸들러
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState()
+      // state: { [userId: string]: { user_id: string }[] }
+      const userIds = Object.keys(state)
+      setOnlineUsers(userIds)
+    })
+
+    // 4. 클린업 (언마운트 시 구독 해제)
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [myUserId])
+
+  // 예시: 특정 유저가 onlineUsers에 있으면 온라인 표시
+  const isChatUserOnline = (chatUserId: string) => onlineUsers.includes(chatUserId)
+
+  const handleSendMessage = useCallback(() => {
+    if (!newMessage.trim()) return;
+    sendMessage(newMessage);
+    setNewMessage('');
+  }, [newMessage, sendMessage]);
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (newMessage.trim()) handleSendMessage()
+    }
+  }
+
+
+  if (!opponent) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <span className="text-gray-400">채팅방 정보를 불러오는 중...</span>
+      </div>
+    )
   }
 
   return (
@@ -166,7 +176,7 @@ const ChatPage: React.FC = () => {
                 </div>
                 
                 {/* Online Status */}
-                {chatUser.isOnline && (
+                {isChatUserOnline(opponent.id) && (
                   <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-400 rounded-full border-2 border-white">
                     <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-75" />
                   </div>
@@ -175,10 +185,10 @@ const ChatPage: React.FC = () => {
               
               <div>
                 <h2 className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                  {chatUser.name}
+                  {opponent.name}
                 </h2>
                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  {chatUser.isOnline ? '온라인' : '오프라인'} • @{chatUser.nickname}
+                  {isChatUserOnline(opponent.id) ? '온라인' : '오프라인'} • @{opponent.nickname}
                 </p>
               </div>
             </div>
@@ -201,10 +211,10 @@ const ChatPage: React.FC = () => {
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`flex ${message.sender === 'me' ? 'justify-end' : 'justify-start'}`}
+            className={`flex ${message.sender === 'chatUsr1' ? 'justify-end' : 'justify-start'}`}
           >
             <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-lg transition-all duration-300 hover:scale-105 ${
-              message.sender === 'me'
+              message.sender === 'chatUsr1'
                 ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
                 : isDarkMode
                   ? 'bg-gray-700 text-gray-100'
@@ -212,7 +222,7 @@ const ChatPage: React.FC = () => {
             }`}>
               <p className="text-sm leading-relaxed">{message.text}</p>
               <p className={`text-xs mt-1 ${
-                message.sender === 'me' 
+                message.sender === 'chatUsr1' 
                   ? 'text-blue-100' 
                   : isDarkMode 
                     ? 'text-gray-400' 
@@ -263,7 +273,7 @@ const ChatPage: React.FC = () => {
           </div>
           
           <button
-            onClick={sendMessage}
+            onClick={handleSendMessage}
             disabled={!newMessage.trim()}
             className={`p-3 rounded-2xl transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
               newMessage.trim()

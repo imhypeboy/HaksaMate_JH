@@ -4,8 +4,11 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
-application.properties
-
+/src/main/resources/application.properties
+/frontend/.next/
+/frontend/node_modules
+/frontend/.env/local
+.next
 ### STS ###
 .apt_generated
 .classpath
@@ -39,3 +42,4 @@ out/
 .env.local
 .application.properties
 node_modules/
+haksamate.zip

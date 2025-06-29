@@ -9,9 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@stomp/stompjs": "^7.1.1",
     "@supabase/supabase-js": "^2.50.0",
     "axios": "^1.9.0",
-    "framer-motion": "^12.18.1",
+    "framer-motion": "^12.19.1",
     "lucide-react": "^0.508.0",
     "next": "15.3.2",
     "react": "^19.0.0",
@@ -19,7 +20,8 @@
     "react-hook-form": "^7.56.3",
     "react-hot-toast": "^2.5.2",
     "react-modal": "^3.16.3",
-    "react-pro-sidebar": "^1.1.0"
+    "react-pro-sidebar": "^1.1.0",
+    "sockjs-client": "^1.6.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -28,6 +30,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-modal": "^3.16.3",
+    "@types/sockjs-client": "^1.5.4",
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
     "tailwindcss": "^4",
