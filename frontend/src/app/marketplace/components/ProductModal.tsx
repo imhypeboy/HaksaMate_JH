@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { X, Heart, MessageCircle, MapPin, Clock, Star, Eye } from "lucide-react"
+import { X, Heart, MessageCircle, MapPin, Clock, Star, Eye, Edit } from "lucide-react"
 import type { Product } from "../types"
 
 interface ProductModalProps {
@@ -10,6 +10,8 @@ interface ProductModalProps {
   onClose: () => void
   onLike: (productId: string) => void
   onChat: (sellerId: string) => void
+  onEdit?: (product: Product) => void // 🔧 수정 함수 추가
+  currentUserId?: string // 🔧 현재 사용자 ID 추가
   isDarkMode?: boolean
 }
 
@@ -19,6 +21,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
   onClose,
   onLike,
   onChat,
+  onEdit, // 🔧 수정 함수
+  currentUserId, // 🔧 현재 사용자 ID
   isDarkMode = false,
 }) => {
   if (!isOpen) return null
@@ -40,6 +44,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
     return `${days}일 전`
   }
 
+  // 🔧 현재 사용자가 판매자인지 확인
+  const isOwner = currentUserId === product.sellerId
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* 배경 오버레이 */}
@@ -54,16 +61,36 @@ const ProductModal: React.FC<ProductModalProps> = ({
         {/* 헤더 */}
         <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-inherit rounded-t-3xl">
           <h2 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>상품 상세</h2>
-          <button
-            onClick={onClose}
-            className={`p-2 rounded-full transition-colors ${
-              isDarkMode
-                ? "hover:bg-gray-700 text-gray-400 hover:text-white"
-                : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <X size={24} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* 🔧 수정 버튼 - 판매자만 보임 */}
+            {isOwner && onEdit && (
+              <button
+                onClick={() => {
+                  onEdit(product)
+                  onClose() // 모달 닫기
+                }}
+                className={`p-2 rounded-full transition-colors ${
+                  isDarkMode
+                    ? "hover:bg-gray-700 text-blue-400 hover:text-blue-300"
+                    : "hover:bg-blue-50 text-blue-500 hover:text-blue-600"
+                }`}
+                title="상품 수정"
+              >
+                <Edit size={20} />
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className={`p-2 rounded-full transition-colors ${
+                isDarkMode
+                  ? "hover:bg-gray-700 text-gray-400 hover:text-white"
+                  : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         <div className="p-6">
@@ -104,6 +131,16 @@ const ProductModal: React.FC<ProductModalProps> = ({
               <div>
                 <h1 className={`text-2xl font-bold mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                   {product.title}
+                  {/* 🔧 내 상품 표시 */}
+                  {isOwner && (
+                    <span
+                      className={`ml-3 text-sm px-3 py-1 rounded-full ${
+                        isDarkMode ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-600"
+                      }`}
+                    >
+                      내 상품
+                    </span>
+                  )}
                 </h1>
                 <div className="flex items-center justify-between">
                   <span className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
@@ -187,18 +224,37 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 </div>
               </div>
 
-              {/* 채팅 버��� */}
-              <button
-                onClick={() => onChat(product.sellerId)}
-                className={`w-full py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-3 ${
-                  isDarkMode
-                    ? "bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30"
-                    : "bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                } hover:scale-105 active:scale-95`}
-              >
-                <MessageCircle size={20} />
-                판매자와 채팅하기
-              </button>
+              {/* 🔧 버튼 영역 - 자신의 상품이면 수정 버튼, 아니면 채팅 버튼 */}
+              {isOwner ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      onEdit?.(product)
+                      onClose()
+                    }}
+                    className={`flex-1 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-3 ${
+                      isDarkMode
+                        ? "bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30"
+                        : "bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                    } hover:scale-105 active:scale-95`}
+                  >
+                    <Edit size={20} />
+                    상품 수정하기
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => onChat(product.sellerId)}
+                  className={`w-full py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-3 ${
+                    isDarkMode
+                      ? "bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30"
+                      : "bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                  } hover:scale-105 active:scale-95`}
+                >
+                  <MessageCircle size={20} />
+                  판매자와 채팅하기
+                </button>
+              )}
             </div>
           </div>
         </div>

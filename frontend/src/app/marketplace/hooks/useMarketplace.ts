@@ -67,7 +67,7 @@ export const useMarketplace = () => {
 
       setProducts(filteredProducts)
     } catch (error) {
-      console.error("��� 상품 목록 로드 실패:", error)
+      console.error("❌ 상품 목록 로드 실패:", error)
       setError(error instanceof Error ? error.message : "상품 목록을 불러오는데 실패했습니다.")
       setProducts([])
     } finally {
@@ -261,6 +261,115 @@ export const useMarketplace = () => {
     }
   }, [])
 
+  // 🔧 상품 수정 함수 추가
+  const updateProduct = useCallback(async (productId: string, productData: FormData) => {
+    try {
+      console.log("📝 상품 수정:", { productId, productData })
+
+      const response = await fetch(`${BASE_URL}/api/items/${productId}`, {
+        method: "PUT",
+        body: productData,
+      })
+
+      if (!response.ok) {
+        throw new Error(`상품 수정 실패: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log("✅ 상품 수정 성공:", result)
+      return result
+    } catch (error) {
+      console.error("❌ 상품 수정 실패:", error)
+      throw error
+    }
+  }, [])
+
+  // 🔧 상품 삭제 함수 추가
+  const deleteProduct = useCallback(async (productId: string) => {
+    try {
+      console.log("🗑️ 상품 삭제:", productId)
+
+      const response = await fetch(`${BASE_URL}/api/items/${productId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error(`상품 삭제 실패: ${response.status}`)
+      }
+
+      console.log("✅ 상품 삭제 성공")
+
+      // 로컬 상태에서 제거
+      setProducts((prev) => prev.filter((product) => product.id !== productId))
+
+      return true
+    } catch (error) {
+      console.error("❌ 상품 삭제 실패:", error)
+      throw error
+    }
+  }, [])
+
+  // 🔧 상품 상태 변경 함수 추가
+  const updateProductStatus = useCallback(async (productId: string, status: "available" | "reserved" | "sold") => {
+    try {
+      console.log("🔄 상품 상태 변경:", { productId, status })
+
+      const backendStatus = mapFrontendStatus(status)
+      const response = await fetch(`${BASE_URL}/api/items/${productId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: backendStatus }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`상품 상태 변경 실패: ${response.status}`)
+      }
+
+      console.log("✅ 상품 상태 변경 성공")
+
+      // 로컬 상태 업데이트
+      setProducts((prev) => prev.map((product) => (product.id === productId ? { ...product, status } : product)))
+
+      return true
+    } catch (error) {
+      console.error("❌ 상품 상태 변경 실패:", error)
+      throw error
+    }
+  }, [])
+
+  // 🔧 거래 완료 함수 추가
+  const completeTransaction = useCallback(async (productId: string, chatRoomId?: number) => {
+    try {
+      console.log("✅ 거래 완료:", { productId, chatRoomId })
+
+      const url = chatRoomId
+        ? `${BASE_URL}/api/items/${productId}/complete?chatRoomId=${chatRoomId}`
+        : `${BASE_URL}/api/items/${productId}/complete`
+
+      const response = await fetch(url, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error(`거래 완료 실패: ${response.status}`)
+      }
+
+      console.log("✅ 거래 완료 성공")
+
+      // 로컬 상태 업데이트
+      setProducts((prev) =>
+        prev.map((product) => (product.id === productId ? { ...product, status: "sold" as const } : product)),
+      )
+
+      return true
+    } catch (error) {
+      console.error("❌ 거래 완료 실패:", error)
+      throw error
+    }
+  }, [])
+
   return {
     products,
     isLoading,
@@ -273,6 +382,10 @@ export const useMarketplace = () => {
     unlikeProduct,
     getProduct,
     createProduct,
+    updateProduct,
+    deleteProduct,
+    updateProductStatus,
+    completeTransaction,
   }
 }
 
@@ -287,5 +400,19 @@ const mapBackendStatus = (status: string): "available" | "reserved" | "sold" => 
       return "sold"
     default:
       return "available"
+  }
+}
+
+// 프론트엔드 상태를 백엔드 상태로 매핑
+const mapFrontendStatus = (status: "available" | "reserved" | "sold"): string => {
+  switch (status) {
+    case "available":
+      return "판매중"
+    case "reserved":
+      return "예약중"
+    case "sold":
+      return "거래완료"
+    default:
+      return "판매중"
   }
 }

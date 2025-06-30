@@ -100,19 +100,72 @@ public class ItemService {
         return itemRepository.save(item).getItemid();
     }
 
+    // 🔧 수정 메서드 개선 - 기존 이미지 유지
     public void updateItem(Long itemId, ItemRegisterRequestDTO requestDTO, List<MultipartFile> images) {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new NoSuchElementException("해당 ID의 게시글이 존재하지 않습니다."));
 
+        // 기본 정보 업데이트
         item.setTitle(requestDTO.getTitle());
         item.setDescription(requestDTO.getDescription());
         item.setPrice(requestDTO.getPrice());
         item.setCategory(requestDTO.getCategory());
         item.setMeetLocation(requestDTO.getMeetLocation());
 
-        item.getItemImages().clear();
+        // 🔧 상태 업데이트 추가 (requestDTO에 status 필드가 있다면)
+        if (requestDTO.getStatus() != null) {
+            try {
+                item.setStatus(Item.Status.valueOf(requestDTO.getStatus()));
+            } catch (IllegalArgumentException e) {
+                System.err.println("⚠️ 잘못된 상태 값: " + requestDTO.getStatus());
+            }
+        }
 
-        saveImages(images, item);
+        // 🔧 기존 이미지 처리 개선
+        List<String> keepImagePaths = requestDTO.getItemImages(); // 프론트에서 보낸 유지할 이미지 목록
+
+        if (keepImagePaths != null && !keepImagePaths.isEmpty()) {
+            // 🔧 유지할 이미지만 남기고 나머지는 삭제
+            List<ItemImage> imagesToRemove = item.getItemImages().stream()
+                    .filter(img -> !keepImagePaths.contains(img.getPhotoPath()))
+                    .collect(Collectors.toList());
+
+            // 삭제할 이미지들의 파일도 함께 삭제
+            for (ItemImage img : imagesToRemove) {
+                deleteImageFile(img.getPhotoPath());
+                item.getItemImages().remove(img);
+                itemImageRepository.delete(img);
+            }
+
+            System.out.println("✅ 기존 이미지 " + keepImagePaths.size() + "개 유지, " + imagesToRemove.size() + "개 삭제");
+        } else {
+            // 🔧 유지할 이미지 목록이 없으면 모든 기존 이미지 삭제
+            for (ItemImage img : item.getItemImages()) {
+                deleteImageFile(img.getPhotoPath());
+            }
+            item.getItemImages().clear();
+            System.out.println("⚠️ 모든 기존 이미지 삭제됨");
+        }
+
+        // 🔧 새로운 이미지 추가
+        if (images != null && !images.isEmpty()) {
+            saveImages(images, item);
+            System.out.println("✅ 새로운 이미지 " + images.size() + "개 추가");
+        }
+    }
+
+    // 🔧 이미지 파일 삭제 헬퍼 메서드
+    private void deleteImageFile(String photoPath) {
+        try {
+            if (photoPath != null && photoPath.startsWith("/uploads/")) {
+                String filename = photoPath.substring(photoPath.lastIndexOf("/") + 1);
+                Files.deleteIfExists(Paths.get(UPLOAD_DIR, filename));
+                Files.deleteIfExists(Paths.get(THUMBNAIL_DIR, "thumb_" + filename));
+                System.out.println("🗑️ 이미지 파일 삭제: " + filename);
+            }
+        } catch (IOException e) {
+            System.err.println("❌ 이미지 파일 삭제 실패: " + e.getMessage());
+        }
     }
 
     private void saveImages(List<MultipartFile> images, Item item) {
@@ -150,14 +203,7 @@ public class ItemService {
                 .orElseThrow(() -> new NoSuchElementException("해당 ID의 게시글이 존재하지 않습니다."));
 
         for (ItemImage img : item.getItemImages()) {
-            String filename = img.getPhotoPath().substring(img.getPhotoPath().lastIndexOf("/") + 1);
-
-            try {
-                Files.deleteIfExists(Paths.get(UPLOAD_DIR, filename));
-                Files.deleteIfExists(Paths.get(THUMBNAIL_DIR, "thumb_" + filename));
-            } catch (IOException e) {
-                System.err.println("❌ 파일 삭제 실패: " + e.getMessage());
-            }
+            deleteImageFile(img.getPhotoPath());
         }
 
         List<ItemTransaction> transactions = itemTransactionRepository.findAllByItem_Itemid(itemId);

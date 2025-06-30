@@ -12,7 +12,9 @@ public class ItemRegisterRequestDTO {
     private String description;
     private Integer price;
     private String category;
-    private UUID sellerId;  // 🔧 사용자 ID 문자열
-    private List<String> itemImages;
+    private UUID sellerId;
+    private List<String> itemImages; // 🔧 기존 이미지 경로 목록 (수정 시 사용)
     private String meetLocation;
+    private String status; // 🔧 상태 필드 추가
 }
+

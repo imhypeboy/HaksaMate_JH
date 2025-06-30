@@ -9,6 +9,7 @@ import SearchBar from "./components/SearchBar"
 import Header from "./components/Header"
 import ProductModal from "./components/ProductModal"
 import AddProductModal from "./components/AddProductModal"
+import EditProductModal from "./components/EditProductModal"
 import ChatModal from "@/components/ChatModal"
 import AnimatedBackground from "../matching/components/AnimatedBackground"
 import { useMarketplace } from "./hooks/useMarketplace"
@@ -23,14 +24,27 @@ const MarketplacePage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [showAddProduct, setShowAddProduct] = useState(false)
+  const [showEditProduct, setShowEditProduct] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
 
   // 🔧 채팅 관련 상태 - sellerId 추가
   const [showChat, setShowChat] = useState(false)
   const [chatSellerId, setChatSellerId] = useState<string | null>(null)
 
   const { user } = useAuth()
-  const { products, isLoading, error, loadProducts, searchProducts, likeProduct, unlikeProduct, getProduct } =
-    useMarketplace()
+  const {
+    products,
+    isLoading,
+    error,
+    loadProducts,
+    searchProducts,
+    likeProduct,
+    unlikeProduct,
+    getProduct,
+    deleteProduct,
+    updateProductStatus,
+    completeTransaction,
+  } = useMarketplace()
 
   // 초기 상품 로드
   useEffect(() => {
@@ -110,6 +124,58 @@ const MarketplacePage: React.FC = () => {
     setShowAddProduct(true)
   }, [user])
 
+  // 🔧 상품 수정 핸들러
+  const handleEditProduct = useCallback((product: Product) => {
+    setEditingProduct(product)
+    setShowEditProduct(true)
+  }, [])
+
+  // 🔧 상품 삭제 핸들러
+  const handleDeleteProduct = useCallback(
+    async (productId: string) => {
+      try {
+        await deleteProduct(productId)
+        alert("상품이 삭제되었습니다.")
+      } catch (error) {
+        alert("상품 삭제에 실패했습니다.")
+      }
+    },
+    [deleteProduct],
+  )
+
+  // 🔧 상품 상태 변경 핸들러
+  const handleStatusChange = useCallback(
+    async (productId: string, status: "available" | "reserved" | "sold") => {
+      try {
+        await updateProductStatus(productId, status)
+
+        const statusLabels = {
+          available: "판매중",
+          reserved: "예약중",
+          sold: "판매완료",
+        }
+
+        alert(`상품 상태가 "${statusLabels[status]}"로 변경되었습니다.`)
+      } catch (error) {
+        alert("상품 상태 변경에 실패했습니다.")
+      }
+    },
+    [updateProductStatus],
+  )
+
+  // 🔧 거래 완료 핸들러
+  const handleCompleteTransaction = useCallback(
+    async (productId: string) => {
+      try {
+        await completeTransaction(productId)
+        alert("거래가 완료되었습니다!")
+      } catch (error) {
+        alert("거래 완료 처리에 실패했습니다.")
+      }
+    },
+    [completeTransaction],
+  )
+
   const toggleTheme = useCallback(() => {
     setIsDarkMode((prev) => !prev)
   }, [])
@@ -122,6 +188,18 @@ const MarketplacePage: React.FC = () => {
     }
     loadProducts(filters)
     setShowAddProduct(false)
+  }, [selectedCategory, loadProducts])
+
+  const handleProductUpdated = useCallback(() => {
+    // 상품 수정 후 목록 새로고침
+    const filters: SearchFilters = {
+      category: selectedCategory,
+      sortBy: "latest",
+    }
+    loadProducts(filters)
+    setShowEditProduct(false)
+    setEditingProduct(null)
+    setSelectedProduct(null) // 🔧 ProductModal도 닫기
   }, [selectedCategory, loadProducts])
 
   return (
@@ -217,6 +295,11 @@ const MarketplacePage: React.FC = () => {
                           onLike={handleLike}
                           onChat={handleChat}
                           onClick={handleProductClick}
+                          onEdit={handleEditProduct}
+                          onDelete={handleDeleteProduct}
+                          onComplete={handleCompleteTransaction}
+                          onStatusChange={handleStatusChange}
+                          currentUserId={user?.id}
                           isDarkMode={isDarkMode}
                         />
                       </div>
@@ -252,6 +335,8 @@ const MarketplacePage: React.FC = () => {
           onClose={() => setSelectedProduct(null)}
           onLike={handleLike}
           onChat={handleChat}
+          onEdit={handleEditProduct} // 🔧 수정 함수 전달
+          currentUserId={user?.id} // 🔧 현재 사용자 ID 전달
           isDarkMode={isDarkMode}
         />
       )}
@@ -261,6 +346,20 @@ const MarketplacePage: React.FC = () => {
           isOpen={showAddProduct}
           onClose={() => setShowAddProduct(false)}
           onSuccess={handleProductAdded}
+          isDarkMode={isDarkMode}
+        />
+      )}
+
+      {/* 🔧 상품 수정 모달 추가 */}
+      {showEditProduct && (
+        <EditProductModal
+          isOpen={showEditProduct}
+          onClose={() => {
+            setShowEditProduct(false)
+            setEditingProduct(null)
+          }}
+          onSuccess={handleProductUpdated}
+          product={editingProduct}
           isDarkMode={isDarkMode}
         />
       )}
