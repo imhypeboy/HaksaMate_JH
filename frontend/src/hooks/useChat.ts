@@ -158,6 +158,7 @@ export function useChat(chatRoomId?: number, myUserId?: string) {
       console.log("⚠️ chatRoomId가 없어서 메시지 로드 스킵")
       return
     }
+
     loadMessages()
   }, [chatRoomId, loadMessages])
 
@@ -259,7 +260,13 @@ export function useChatRooms(userId: string | null) {
       const data = await res.json()
       console.log("✅ 채팅방 목록 로드 성공:", data.length, "개")
 
-      setRooms(data)
+      // 🔧 중복 채팅방 제거 (같은 chatroomId 기준)
+      const uniqueRooms = data.filter((room: ChatRoom, index: number, self: ChatRoom[]) => 
+        index === self.findIndex(r => r.chatroomId === room.chatroomId)
+      )
+
+      console.log("🔧 중복 제거 후:", uniqueRooms.length, "개")
+      setRooms(uniqueRooms)
     } catch (error) {
       console.error("❌ 채팅방 목록 로드 에러:", error)
     } finally {
@@ -267,11 +274,26 @@ export function useChatRooms(userId: string | null) {
     }
   }, [userId])
 
+  // 🔧 채팅방 생성 또는 기존 방 찾기 개선
   const createRoom = useCallback(async (chatUsr1Id: string, chatUsr2Id: string) => {
-    console.log("🆕 채팅방 생성 시작:", { chatUsr1Id, chatUsr2Id })
+    console.log("🆕 채팅방 생성/찾기 시작:", { chatUsr1Id, chatUsr2Id })
     setIsRoomsLoading(true)
 
     try {
+      // 🔧 먼저 기존 채팅방이 있는지 확인
+      console.log("🔍 기존 채팅방 검색 중...")
+      const existingRoom = rooms.find(room => 
+        (room.chatUsr1Id === chatUsr1Id && room.chatUsr2Id === chatUsr2Id) ||
+        (room.chatUsr1Id === chatUsr2Id && room.chatUsr2Id === chatUsr1Id)
+      )
+
+      if (existingRoom) {
+        console.log("✅ 기존 채팅방 발견:", existingRoom.chatroomId)
+        return existingRoom
+      }
+
+      // 🔧 기존 방이 없으면 새로 생성
+      console.log("🆕 새 채팅방 생성 중...")
       const res = await fetch(`${BASE_URL}/api/chat-rooms`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -286,15 +308,20 @@ export function useChatRooms(userId: string | null) {
       const newRoom = await res.json()
       console.log("✅ 채팅방 생성 성공:", newRoom)
 
-      setRooms((prev) => [newRoom, ...prev])
+      // 🔧 중복 방지를 위해 기존 목록에서 같은 방 제거 후 추가
+      setRooms((prev) => {
+        const filtered = prev.filter(room => room.chatroomId !== newRoom.chatroomId)
+        return [newRoom, ...filtered]
+      })
+      
       return newRoom
     } catch (error) {
-      console.error("❌ 채팅방 생성 에러:", error)
+      console.error("❌ 채팅방 생성/찾기 에러:", error)
       throw error
     } finally {
       setIsRoomsLoading(false)
     }
-  }, [])
+  }, [rooms])
 
   const deleteRoom = useCallback(async (chatRoomId: number) => {
     console.log("🗑️ 채팅방 삭제 시작:", chatRoomId)
