@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import type { Product, SearchFilters } from "../types"
+import { MockDataFactory } from "../data/mockData"
 
 const BASE_URL = "http://localhost:8080"
 
@@ -18,6 +19,27 @@ export const useMarketplace = () => {
     setError(null)
 
     try {
+      // 🏭 Factory Pattern으로 데이터 생성
+      const allProducts = await MockDataFactory.createProductsWithDelay(800)
+      
+      // 카테고리 필터 적용
+      let filteredProducts = filters.category && filters.category !== "all" 
+        ? MockDataFactory.createProductsByCategory(filters.category)
+        : allProducts
+
+      // 정렬 적용
+      if (filters.sortBy === "price-low") {
+        filteredProducts.sort((a, b) => a.price - b.price)
+      } else if (filters.sortBy === "price-high") {
+        filteredProducts.sort((a, b) => b.price - a.price)
+      } else {
+        filteredProducts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      }
+
+      setProducts(filteredProducts)
+      console.log("✅ Factory 데이터 로드 성공:", filteredProducts.length, "개")
+
+      /* 🔧 실제 백엔드 연결 코드 (나중에 사용)
       const response = await fetch(`${BASE_URL}/api/items`)
 
       if (!response.ok) {
@@ -66,6 +88,7 @@ export const useMarketplace = () => {
       }
 
       setProducts(filteredProducts)
+      */
     } catch (error) {
       console.error("❌ 상품 목록 로드 실패:", error)
       setError(error instanceof Error ? error.message : "상품 목록을 불러오는데 실패했습니다.")
@@ -81,50 +104,33 @@ export const useMarketplace = () => {
     setError(null)
 
     try {
-      // 전체 상품을 먼저 로드한 후 클라이언트에서 필터링
-      // 실제로는 백엔드에서 검색 API를 제공해야 함
-      const response = await fetch(`${BASE_URL}/api/items`)
-
-      if (!response.ok) {
-        throw new Error(`상품 검색 실패: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      const transformedProducts: Product[] = data.map((item: any) => ({
-        id: item.itemid.toString(),
-        title: item.title,
-        description: item.description,
-        price: item.price,
-        images: item.itemImages || [],
-        category: item.category,
-        condition: "good" as const,
-        location: item.meetLocation || "위치 미정",
-        sellerId: item.sellerId,
-        sellerName: item.sellerName || "익명",
-        sellerRating: 4.5,
-        createdAt: new Date(item.regdate),
-        updatedAt: new Date(item.regdate),
-        status: mapBackendStatus(item.status),
-        views: 0,
-        likes: 0,
-        isLiked: false,
-        tags: [],
-      }))
-
+      // 🔍 Factory Pattern으로 검색 실행
+      await new Promise(resolve => setTimeout(resolve, 600))
+      
       // 검색어로 필터링
-      let filteredProducts = transformedProducts.filter((product) => {
-        const query = searchQuery.toLowerCase()
-        return product.title.toLowerCase().includes(query) || product.description.toLowerCase().includes(query)
-      })
+      let filteredProducts = MockDataFactory.searchProducts(searchQuery)
 
       // 카테고리 필터 적용
       if (filters.category && filters.category !== "all") {
         filteredProducts = filteredProducts.filter((p) => p.category === filters.category)
       }
 
+      // 정렬 적용
+      if (filters.sortBy === "price-low") {
+        filteredProducts.sort((a, b) => a.price - b.price)
+      } else if (filters.sortBy === "price-high") {
+        filteredProducts.sort((a, b) => b.price - a.price)
+      } else {
+        filteredProducts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      }
+
       setProducts(filteredProducts)
-      console.log("✅ 상품 검색 성공:", filteredProducts.length, "개")
+      console.log("✅ Factory 검색 성공:", filteredProducts.length, "개")
+
+      /* 🔧 실제 백엔드 연결 코드 (나중에 사용)
+      const response = await fetch(`${BASE_URL}/api/items`)
+      // ... 백엔드 로직
+      */
     } catch (error) {
       console.error("❌ 상품 검색 실패:", error)
       setError(error instanceof Error ? error.message : "상품 검색에 실패했습니다.")

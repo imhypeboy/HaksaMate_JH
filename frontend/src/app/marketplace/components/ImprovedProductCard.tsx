@@ -1,6 +1,8 @@
 import React from 'react'
 import { Heart, MessageCircle, MoreVertical } from 'lucide-react'
 import type { Product } from '../types'
+import { ProductBadge } from './ProductBadge'
+import { PriceDisplay } from './PriceDisplay'
 
 interface ImprovedProductCardProps {
   product: Product
@@ -20,17 +22,7 @@ const ImprovedProductCard: React.FC<ImprovedProductCardProps> = ({
   isDarkMode = false
 }) => {
   const isOwner = currentUserId === product.sellerId
-  const statusColors = {
-    available: isDarkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700',
-    reserved: isDarkMode ? 'bg-yellow-500/20 text-yellow-400' : 'bg-yellow-100 text-yellow-700',
-    sold: isDarkMode ? 'bg-gray-500/20 text-gray-400' : 'bg-gray-100 text-gray-600'
-  }
-
-  const statusLabels = {
-    available: '판매중',
-    reserved: '예약중',
-    sold: '판매완료'
-  }
+  // ✨ 컴포넌트화로 하드코딩 제거
 
   return (
     <div
@@ -64,13 +56,7 @@ const ImprovedProductCard: React.FC<ImprovedProductCardProps> = ({
 
         {/* 상태 배지 */}
         <div className="absolute top-3 left-3">
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              statusColors[product.status || 'available']
-            }`}
-          >
-            {statusLabels[product.status || 'available']}
-          </span>
+          <ProductBadge status={product.status || 'available'} />
         </div>
 
         {/* 좋아요 버튼 */}
@@ -116,13 +102,7 @@ const ImprovedProductCard: React.FC<ImprovedProductCardProps> = ({
 
         {/* 가격 */}
         <div className="flex items-center justify-between">
-          <span
-            className={`text-xl font-bold ${
-              isDarkMode ? 'text-blue-400' : 'text-blue-600'
-            }`}
-          >
-            {product.price.toLocaleString()}원
-          </span>
+          <PriceDisplay price={product.price} size="lg" />
           
           <div className="flex items-center gap-2">
             {/* 좋아요 수 */}
@@ -131,7 +111,7 @@ const ImprovedProductCard: React.FC<ImprovedProductCardProps> = ({
                 isDarkMode ? 'text-gray-400' : 'text-gray-500'
               }`}
             >
-              ❤️ {product.likeCount || 0}
+              ❤️ {product.likes || 0}
             </span>
           </div>
         </div>
