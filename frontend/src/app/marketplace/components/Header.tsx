@@ -13,7 +13,7 @@ const Header = React.memo(({ isDarkMode, onToggleTheme, onAddProduct }: HeaderPr
   return (
     <header className="relative z-10 flex justify-center items-center p-6 md:p-8 pt-8">
       <div className="flex items-center gap-4">
-        <div className="text-4xl">��</div>
+        <div className="text-4xl">🥕</div>
         <div className="text-center">
           <h1
             className={`text-3xl md:text-4xl lg:text-5xl font-bold transition-colors duration-500 ${
