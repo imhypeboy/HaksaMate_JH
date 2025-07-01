@@ -11,7 +11,11 @@ import ProductModal from "./components/ProductModal"
 import AddProductModal from "./components/AddProductModal"
 import EditProductModal from "./components/EditProductModal"
 import ChatModal from "@/components/ChatModal"
-import AnimatedBackground from "../matching/components/AnimatedBackground"
+import ErrorState from "./components/ErrorState"
+import EmptyState from "./components/EmptyState"
+import ProductSkeleton from "./components/ProductSkeleton"
+import FloatingActionButton from "./components/FloatingActionButton"
+import CategoryChips from "./components/CategoryChips"
 import { useMarketplace } from "./hooks/useMarketplace"
 import { useAuth } from "@/hooks/useAuth"
 import type { Product, SearchFilters } from "./types"
@@ -213,8 +217,6 @@ const MarketplacePage: React.FC = () => {
             : "bg-gradient-to-br from-orange-50 via-red-50 to-pink-50"
         }`}
       >
-        <AnimatedBackground isDarkMode={isDarkMode} />
-
         <Header isDarkMode={isDarkMode} onToggleTheme={toggleTheme} onAddProduct={handleAddProduct} />
 
         <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-8 pb-8">
@@ -239,6 +241,15 @@ const MarketplacePage: React.FC = () => {
                   onFilterClick={() => setShowFilters(!showFilters)}
                   isDarkMode={isDarkMode}
                 />
+
+                {/* 모바일 카테고리 칩 */}
+                <div className="lg:hidden">
+                  <CategoryChips
+                    selectedCategory={selectedCategory}
+                    onCategoryChange={setSelectedCategory}
+                    isDarkMode={isDarkMode}
+                  />
+                </div>
 
                 {showFilters && (
                   <div className="lg:hidden">
@@ -265,65 +276,69 @@ const MarketplacePage: React.FC = () => {
                 </div>
 
                 {/* 로딩 상태 */}
-                {isLoading && (
-                  <div className="flex justify-center items-center py-16">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-                  </div>
-                )}
+                {isLoading && <ProductSkeleton count={6} isDarkMode={isDarkMode} />}
 
                 {/* 에러 상태 */}
                 {error && (
-                  <div className="text-center py-16">
-                    <div className="text-red-500 text-lg">{error}</div>
-                  </div>
+                  <ErrorState 
+                    error={error} 
+                    onRetry={() => {
+                      const filters: SearchFilters = {
+                        category: selectedCategory,
+                        sortBy: "latest",
+                      }
+                      loadProducts(filters)
+                    }}
+                    isDarkMode={isDarkMode}
+                  />
                 )}
 
                 {/* 상품 그리드 */}
-                {!isLoading && !error && (
+                {!isLoading && !error && products.length > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {products.map((product, index) => (
-                      <div
+                    {products.map((product) => (
+                      <ProductCard
                         key={product.id}
-                        style={{
-                          animationDelay: `${index * 100}ms`,
-                          animation: "slideInUp 0.6s ease-out forwards",
-                          opacity: 0,
-                        }}
-                      >
-                        <ProductCard
-                          product={product}
-                          onLike={handleLike}
-                          onChat={handleChat}
-                          onClick={handleProductClick}
-                          onEdit={handleEditProduct}
-                          onDelete={handleDeleteProduct}
-                          onComplete={handleCompleteTransaction}
-                          onStatusChange={handleStatusChange}
-                          currentUserId={user?.id}
-                          isDarkMode={isDarkMode}
-                        />
-                      </div>
+                        product={product}
+                        onLike={handleLike}
+                        onChat={handleChat}
+                        onClick={handleProductClick}
+                        onEdit={handleEditProduct}
+                        onDelete={handleDeleteProduct}
+                        onComplete={handleCompleteTransaction}
+                        onStatusChange={handleStatusChange}
+                        currentUserId={user?.id}
+                        isDarkMode={isDarkMode}
+                      />
                     ))}
                   </div>
                 )}
 
                 {/* 빈 상태 */}
                 {!isLoading && !error && products.length === 0 && (
-                  <div
-                    className={`text-center py-16 transition-colors duration-500 ${
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    }`}
-                  >
-                    <div className="text-8xl mb-6">🔍</div>
-                    <h3 className={`text-2xl font-bold mb-4 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                      검색 결과가 없습니다
-                    </h3>
-                    <p className="text-lg">다른 검색어나 카테고리를 시도해보세요</p>
-                  </div>
+                  <EmptyState
+                    type={searchQuery ? "search" : selectedCategory !== "all" ? "category" : "general"}
+                    searchQuery={searchQuery}
+                    selectedCategory={selectedCategory !== "all" ? selectedCategory : undefined}
+                    onAddProduct={handleAddProduct}
+                    onClearFilters={() => {
+                      setSearchQuery("")
+                      setSelectedCategory("all")
+                    }}
+                    isDarkMode={isDarkMode}
+                  />
                 )}
               </div>
             </div>
           </div>
+        </div>
+
+        {/* 모바일 Floating Action Button */}
+        <div className="md:hidden">
+          <FloatingActionButton
+            onClick={handleAddProduct}
+            isDarkMode={isDarkMode}
+          />
         </div>
       </div>
 
@@ -365,7 +380,7 @@ const MarketplacePage: React.FC = () => {
       )}
 
       {/* 🔧 기존 ChatModal 사용 - sellerId prop 추가 */}
-      {showChat && (
+      {showChat && chatSellerId && (
         <ChatModal
           isOpen={showChat}
           onClose={() => {
@@ -376,19 +391,6 @@ const MarketplacePage: React.FC = () => {
           isDarkMode={isDarkMode}
         />
       )}
-
-      <style jsx>{`
-        @keyframes slideInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </>
   )
 }

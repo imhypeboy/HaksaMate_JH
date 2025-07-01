@@ -54,16 +54,17 @@ const SearchBar = React.memo(({ searchQuery, onSearchChange, onFilterClick, isDa
           />
         </div>
 
+        {/* 데스크톱에서만 필터 버튼 표시 */}
         <button
           onClick={onFilterClick}
-          className={`px-6 py-4 rounded-2xl font-medium transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] flex items-center gap-3 ${
+          className={`hidden lg:flex px-6 py-4 rounded-2xl font-medium transition-colors duration-200 items-center gap-3 ${
             isDarkMode
-              ? "bg-gray-700/50 hover:bg-gray-700 text-gray-300 hover:text-gray-100 border border-gray-600"
-              : "bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 border border-gray-200"
-          } hover:scale-105 active:scale-95 shadow-lg`}
+              ? "bg-gray-700 hover:bg-gray-600 text-gray-300 border border-gray-600"
+              : "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200"
+          }`}
         >
           <SlidersHorizontal size={20} />
-          <span className="hidden sm:inline">필터</span>
+          <span>필터</span>
         </button>
       </div>
     </div>
