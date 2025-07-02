@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { X, Send, Smile, User, MessageCircle, Search } from "lucide-react"
 import { useChat, useChatRooms } from "../hooks/useChat"
 import { supabase } from "@/lib/supabaseClient"
+import { StatusIndicator } from '@/components/ui/StatusIndicator'
 
 interface ChatModalProps {
   isOpen: boolean
@@ -223,7 +224,11 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, initialRoomId, s
                   <span className="ml-2 text-sm font-normal opacity-60">({selectedRoom.chatroomId}번 방)</span>
                   {/* 🔧 연결 상태 표시 추가 */}
                   <div className="flex items-center gap-2 ml-3">
-                    <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
+                    <StatusIndicator 
+                      status="online" 
+                      size="sm" 
+                      animate 
+                    />
                     <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
                       {isConnected ? "연결됨" : "연결 안됨"}
                     </span>

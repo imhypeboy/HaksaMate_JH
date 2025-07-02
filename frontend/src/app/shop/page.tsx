@@ -7,98 +7,73 @@ import Sidebar from "../sidebar/sidebar"
 import ProductCard from "./components/ProductCard"
 import CategoryFilter from "./components/CategoryFilter"
 import SearchBar from "./components/SearchBar"
+import { MockDataFactory } from "../marketplace/data/mockData"
 import type { Product } from "./types"
-
-// 임시 데이터
-const SAMPLE_PRODUCTS: Product[] = [
-  {
-    id: "1",
-    title: "맥북 프로 13인치 M2 (2022)",
-    description: "거의 새것같은 맥북 프로입니다. 학업용으로 가끔 사용했어요.",
-    price: 1800000,
-    images: ["/placeholder.svg?height=300&width=300"],
-    category: "electronics",
-    condition: "like-new",
-    location: "서울 강남구",
-    sellerId: "user1",
-    sellerName: "김학생",
-    sellerRating: 4.8,
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2시간 전
-    updatedAt: new Date(),
-    status: "available",
-    views: 124,
-    likes: 15,
-    isLiked: false,
-    tags: ["맥북", "노트북", "M2"],
-  },
-  {
-    id: "2",
-    title: "대학 전공서적 일괄 판매",
-    description: "경영학과 전공서적 10권 일괄 판매합니다. 밑줄 조금 있어요.",
-    price: 150000,
-    images: ["/placeholder.svg?height=300&width=300"],
-    category: "books",
-    condition: "good",
-    location: "서울 서대문구",
-    sellerId: "user2",
-    sellerName: "이학생",
-    sellerRating: 4.5,
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5시간 전
-    updatedAt: new Date(),
-    status: "available",
-    views: 89,
-    likes: 8,
-    isLiked: true,
-    tags: ["전공서적", "경영학", "교재"],
-  },
-  {
-    id: "3",
-    title: "아이폰 14 Pro 128GB 딥퍼플",
-    description: "케이스 끼고 사용해서 스크래치 없습니다. 배터리 효율 98%",
-    price: 950000,
-    images: ["/placeholder.svg?height=300&width=300"],
-    category: "mobile",
-    condition: "like-new",
-    location: "서울 마포구",
-    sellerId: "user3",
-    sellerName: "박학생",
-    sellerRating: 4.9,
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1일 전
-    updatedAt: new Date(),
-    status: "reserved",
-    views: 256,
-    likes: 32,
-    isLiked: false,
-    tags: ["아이폰", "스마트폰", "애플"],
-  },
-  {
-    id: "4",
-    title: "소니 WH-1000XM4 헤드폰",
-    description: "노이즈 캔슬링 헤드폰입니다. 박스, 케이블 모두 있어요.",
-    price: 180000,
-    images: ["/placeholder.svg?height=300&width=300"],
-    category: "audio",
-    condition: "good",
-    location: "서울 종로구",
-    sellerId: "user4",
-    sellerName: "최학생",
-    sellerRating: 4.7,
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3일 전
-    updatedAt: new Date(),
-    status: "available",
-    views: 67,
-    likes: 12,
-    isLiked: false,
-    tags: ["헤드폰", "소니", "노이즈캔슬링"],
-  },
-]
 
 const MarketplacePage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
-  const [products, setProducts] = useState<Product[]>(SAMPLE_PRODUCTS)
+  const [products, setProducts] = useState<Product[]>([])
   const [showFilters, setShowFilters] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // 🔧 중앙 데이터 시스템에서 상품 데이터 로드
+  const loadProducts = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      // 마켓플레이스 데이터를 Shop 타입으로 변환
+      const marketplaceProducts = await MockDataFactory.createProductsWithDelay(600)
+      
+      const shopProducts: Product[] = marketplaceProducts.map(item => ({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        price: item.price,
+        images: item.images,
+        category: mapCategoryToShop(item.category),
+        condition: item.condition,
+        location: item.location,
+        sellerId: item.sellerId,
+        sellerName: item.sellerName,
+        sellerRating: item.sellerRating,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        status: item.status,
+        views: item.views,
+        likes: item.likes,
+        isLiked: item.isLiked,
+        tags: item.tags
+      }))
+
+      setProducts(shopProducts)
+    } catch (error) {
+      console.error('상품 데이터 로드 실패:', error)
+      setProducts([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // 카테고리 매핑 함수
+  const mapCategoryToShop = (marketplaceCategory: string): string => {
+    const categoryMap: Record<string, string> = {
+      '전자기기': 'electronics',
+      '도서/교재': 'books',
+      '휴대폰': 'mobile',
+      '오디오': 'audio',
+      '차량/오토바이': 'vehicle',
+      '가구/인테리어': 'furniture',
+      '의류/잡화': 'fashion',
+      '생활용품': 'life'
+    }
+    return categoryMap[marketplaceCategory] || 'electronics'
+  }
+
+  // 컴포넌트 마운트 시 데이터 로드
+  React.useEffect(() => {
+    loadProducts()
+  }, [loadProducts])
 
   // 필터링된 상품 목록
   const filteredProducts = useMemo(() => {
@@ -147,88 +122,75 @@ const MarketplacePage: React.FC = () => {
   }, [])
 
   return (
-    <>
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+    <div className="min-h-screen bg-gray-50">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="min-h-screen bg-gray-50">
+      <div className={`transition-all duration-300 ${sidebarOpen ? "lg:ml-64" : ""}`}>
         {/* 헤더 */}
-        <header className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-bold text-gray-900">🥕 중고마켓</h1>
-                <span className="text-sm text-gray-500">우리 학교 학생들과 안전한 거래</span>
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+          <div className="max-w-6xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+                <h1 className="text-2xl font-bold text-gray-900">중고마켓</h1>
               </div>
 
-              <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl font-medium transition-colors duration-200 flex items-center gap-2">
+              <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
                 <Plus size={20} />
-                판매하기
+                <span>판매하기</span>
               </button>
             </div>
           </div>
-        </header>
+        </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* 사이드바 (데스크톱) */}
-            <div className="hidden lg:block">
-              <div className="space-y-6">
-                <CategoryFilter selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
-              </div>
-            </div>
-
-            {/* 메인 컨텐츠 */}
-            <div className="lg:col-span-3">
-              <div className="space-y-6">
-                {/* 검색바 */}
-                <SearchBar
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  onFilterClick={() => setShowFilters(!showFilters)}
-                />
-
-                {/* 모바일 카테고리 (필터 열렸을 때) */}
-                {showFilters && (
-                  <div className="lg:hidden">
-                    <CategoryFilter selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
-                  </div>
-                )}
-
-                {/* 결과 헤더 */}
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    {selectedCategory === "all" ? "전체 상품" : `${selectedCategory} 상품`}
-                    <span className="text-sm font-normal text-gray-500 ml-2">({filteredProducts.length}개)</span>
-                  </h2>
-                </div>
-
-                {/* 상품 그리드 */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredProducts.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      onLike={handleLike}
-                      onChat={handleChat}
-                      onClick={handleProductClick}
-                    />
-                  ))}
-                </div>
-
-                {/* 빈 상태 */}
-                {filteredProducts.length === 0 && (
-                  <div className="text-center py-12">
-                    <div className="text-6xl mb-4">🔍</div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">검색 결과가 없습니다</h3>
-                    <p className="text-gray-500">다른 검색어나 카테고리를 시도해보세요</p>
-                  </div>
-                )}
-              </div>
-            </div>
+        {/* 메인 컨텐츠 */}
+        <div className="max-w-6xl mx-auto px-4 py-6">
+          {/* 검색 및 필터 */}
+          <div className="mb-6 space-y-4">
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onFilterClick={() => setShowFilters(!showFilters)}
+            />
+            <CategoryFilter
+              selectedCategory={selectedCategory}
+              onCategoryChange={setSelectedCategory}
+            />
           </div>
+
+          {/* 상품 그리드 */}
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">상품을 불러오는 중...</p>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">조건에 맞는 상품이 없습니다.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onLike={handleLike}
+                  onChat={handleChat}
+                  onClick={handleProductClick}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
-    </>
+    </div>
   )
 }
 

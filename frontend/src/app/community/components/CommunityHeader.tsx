@@ -1,5 +1,6 @@
 import React from "react"
 import { Search, Bell, X, MessageSquare } from "lucide-react"
+import { StatusIndicator } from '@/components/ui/StatusIndicator'
 
 interface CommunityHeaderProps {
   sidebarOpen: boolean
@@ -67,9 +68,12 @@ export const CommunityHeader: React.FC<CommunityHeaderProps> = ({
               >
                 <Bell className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                 {unreadCount > 0 && (
-                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </div>
+                  <StatusIndicator 
+                    status="error" 
+                    size="lg" 
+                    animate 
+                    className="absolute -top-1 -right-1 text-xs font-bold"
+                  />
                 )}
               </button>
             </div>

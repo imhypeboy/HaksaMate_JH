@@ -11,6 +11,7 @@ import { useAlarms } from "./hooks/useAlarms"
 import { formatStopwatchTime, formatCurrentTime } from "./utils/timeFormatters"
 import TimerSection from "./components/TimerSection"
 import type { TimerState, StopwatchState, ActiveTab, AlarmItem, LapTime } from "./types"
+import { StatusIndicator } from '@/components/ui/StatusIndicator'
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -224,8 +225,12 @@ export default function TimerApp() {
                                             </motion.div>
                                             <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                                    <span className="text-sm font-medium text-gray-700">{currentTimeDisplay.timezone}</span>
+                                                    <StatusIndicator 
+                                                      status="online" 
+                                                      size="sm" 
+                                                      animate 
+                                                    />
+                                                    <span className="text-sm text-gray-600">활성</span>
                                                 </div>
                                                 <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
                                                 <span className="text-sm text-gray-500">실시간</span>

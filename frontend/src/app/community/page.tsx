@@ -41,6 +41,15 @@ import { CommunityHeader } from "./components/CommunityHeader"
 import { RightSidebar } from "./components/RightSidebar"
 import { NewPostModal } from "./components/NewPostModal"
 import { NotificationsPanel } from "./components/NotificationsPanel"
+import { MockDataFactory, type MockUser } from '@/lib/mockData'
+import { StatusIndicator } from '@/components/ui/StatusIndicator'
+
+// User 타입을 Supabase User와 호환되도록 수정
+interface CommunityUser {
+  id: string
+  email?: string
+  username?: string
+}
 
 export default function CommunityPage() {
   const router = useRouter()
@@ -50,7 +59,7 @@ export default function CommunityPage() {
   )
   const [newPost, setNewPost] = useState("")
   const [posts, setPosts] = useState<Post[]>([])
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<CommunityUser | null>(null)
   const [username, setUsername] = useState<string>("")
   const [likedPostIds, setLikedPostIds] = useState<number[]>([])
   const [bookmarkedPostIds, setBookmarkedPostIds] = useState<number[]>([])
@@ -201,7 +210,7 @@ export default function CommunityPage() {
     }))
   }, [])
 
-  // 인증 확인
+  // 인증 확인 - 타입 문제 해결
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -212,7 +221,12 @@ export default function CommunityPage() {
           router.push("/auth/login")
           return
         }
-        setUser(session.user)
+        
+        // Supabase User를 CommunityUser로 변환
+        setUser({
+          id: session.user.id,
+          email: session.user.email
+        })
 
         const { data, error } = await supabase
           .from("profiles")

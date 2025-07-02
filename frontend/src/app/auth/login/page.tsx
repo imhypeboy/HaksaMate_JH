@@ -58,7 +58,10 @@ export default function LoginPage() {
         try {
             await loginUser(credentials);
             setIsSuccess(true);
-            triggerSuccess(800);
+            
+            // 🎯 타이밍 개선: 성공 애니메이션을 충분히 보여준 후 이동
+            triggerSuccess(1200); // 성공 애니메이션 1.2초
+            
             if (rememberMe) {
                 try {
                     localStorage.setItem('rememberedEmail', credentials.email);
@@ -68,9 +71,11 @@ export default function LoginPage() {
             } else {
                 localStorage.removeItem('rememberedEmail');
             }
+            
+            // 🎯 페이지 이동을 1.5초 후로 지연 (애니메이션 완료 후)
             setTimeout(() => {
                 router.push('/');
-            }, 800);
+            }, 1500);
         } catch (error: any) {
             setError(
                 error.response?.data?.message ||
@@ -162,11 +167,33 @@ export default function LoginPage() {
                     >
                         {isLoading ? (
                             <>
-                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                <svg 
+                                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" 
+                                    xmlns="http://www.w3.org/2000/svg" 
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    aria-hidden="true"
+                                >
+                                    <circle 
+                                        className="opacity-25" 
+                                        cx="12" 
+                                        cy="12" 
+                                        r="10" 
+                                        stroke="currentColor" 
+                                        strokeWidth="4"
+                                    />
+                                    <path 
+                                        className="opacity-75" 
+                                        fill="currentColor" 
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                    />
                                 </svg>
                                 로그인 중...
+                            </>
+                        ) : isSuccess ? (
+                            <>
+                                <CheckCircle2 className="h-4 w-4 mr-2 text-white" />
+                                성공!
                             </>
                         ) : '로그인'}
                     </button>
@@ -186,16 +213,86 @@ export default function LoginPage() {
                     </Link>
                 </p>
             </div>
-            {/* 성공 애니메이션 오버레이 */}
+            {/* 🌟 완전히 새로운 성공 애니메이션 */}
             {isSuccess && (
                 <div
-                    className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm rounded-2xl z-10 animate-fade-in"
+                    className="absolute inset-0 flex items-center justify-center rounded-2xl z-10 overflow-hidden"
+                    style={{
+                        background: 'radial-gradient(circle at center, rgba(34, 197, 94, 0.1) 0%, rgba(255, 255, 255, 0.95) 100%)',
+                        backdropFilter: 'blur(20px)',
+                        animation: 'successOverlay 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards'
+                    }}
                     aria-live="assertive"
                     role="status"
                 >
-                    <div className="text-green-600 animate-scale-up flex flex-col items-center">
-                        <CheckCircle2 className="h-16 w-16 animate-pulse" aria-hidden="true" />
-                        <p className="mt-2 text-lg font-medium drop-shadow-md">로그인 성공!</p>
+                    {/* 🎊 파티클 효과 배경 */}
+                    <div className="absolute inset-0">
+                        {[...Array(6)].map((_, i) => (
+                            <div
+                                key={i}
+                                className="absolute w-2 h-2 bg-green-400 rounded-full opacity-70"
+                                style={{
+                                    left: `${20 + i * 12}%`,
+                                    top: `${30 + (i % 2) * 40}%`,
+                                    animation: `particle${i + 1} 1.2s ease-out forwards`,
+                                    animationDelay: `${0.2 + i * 0.1}s`
+                                }}
+                            />
+                        ))}
+                    </div>
+
+                    {/* 🎯 메인 콘텐츠 */}
+                    <div 
+                        className="relative flex flex-col items-center z-10"
+                        style={{
+                            animation: 'successContent 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
+                        }}
+                    >
+                        {/* 💚 체크마크 with 원형 배경 */}
+                        <div className="relative mb-4">
+                            <div 
+                                className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center shadow-xl"
+                                style={{
+                                    animation: 'checkCircle 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards',
+                                    animationDelay: '0.2s',
+                                    transform: 'scale(0)'
+                                }}
+                            >
+                                <CheckCircle2 
+                                    className="h-10 w-10 text-white"
+                                    style={{
+                                        animation: 'checkMark 0.8s ease-out forwards',
+                                        animationDelay: '0.4s',
+                                        opacity: '0'
+                                    }}
+                                    aria-hidden="true" 
+                                />
+                            </div>
+                            {/* ✨ 반짝이는 링 효과 */}
+                            <div 
+                                className="absolute inset-0 rounded-full border-4 border-green-300"
+                                style={{
+                                    animation: 'ripple 1s ease-out forwards',
+                                    animationDelay: '0.3s',
+                                    opacity: '0'
+                                }}
+                            />
+                        </div>
+
+                        {/* 📝 깔끔한 성공 메시지 */}
+                        <div className="text-center">
+                            <h3 
+                                className="text-2xl font-bold text-gray-800"
+                                style={{
+                                    animation: 'textSlideUp 0.6s ease-out forwards',
+                                    animationDelay: '0.6s',
+                                    opacity: '0',
+                                    transform: 'translateY(20px)'
+                                }}
+                            >
+                                🎉 로그인 성공!
+                            </h3>
+                        </div>
                     </div>
                 </div>
             )}

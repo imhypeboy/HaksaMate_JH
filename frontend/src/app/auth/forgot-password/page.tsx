@@ -105,13 +105,17 @@ export default function ForgotPasswordPage() {
         </Link>
       </div>
 
-      {/* 성공 오버레이 */}
+      {/* 🎨 개선된 성공 애니메이션 오버레이 */}
       {isSuccess && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm rounded-2xl z-10 animate-fade-in">
+        <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-2xl z-10 animate-fade-in">
           <div className="text-green-600 animate-scale-up flex flex-col items-center">
-            <CheckCircle2 className="h-16 w-16 animate-pulse" />
-            <p className="mt-2 text-lg font-medium drop-shadow-md">이메일을 확인해주세요!</p>
-            <p className="text-sm text-gray-600">비밀번호 재설정 링크를 보냈습니다.</p>
+            <CheckCircle2 className="h-16 w-16 animate-check-success text-green-500" />
+            <p className="mt-3 text-lg font-semibold drop-shadow-md text-gray-800">
+              이메일을 확인해주세요!
+            </p>
+            <p className="mt-1 text-sm text-gray-600">
+              비밀번호 재설정 링크를 보냈습니다.
+            </p>
           </div>
         </div>
       )}
