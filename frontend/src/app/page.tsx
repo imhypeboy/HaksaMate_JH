@@ -14,6 +14,7 @@ import Sidebar from "./sidebar/sidebar"
 import { Header } from "./components/header"
 import { SubjectManagement } from "./components/subject-manager"
 import { TimetableSection } from "./components/timetable-section"
+import DashboardPanel from "./components/DashboardPanel"
 import { MobileFAB } from "./components/mobile-fab"
 import { SubjectModal } from "./components/SubjectModal"
 import { ProfileModal } from "./components/ProfileModal"
@@ -494,17 +495,25 @@ export default function Page() {
               </motion.button>
             </motion.div>
 
-            {/* 시간표 영역 - 더 넓은 공간 차지 */}
-            <TimetableSection
-              timetable={timetable}
-              subjects={subjects}
-              isGenerating={isGenerating}
-              days={days}
-              hours={hours}
-              timetableMap={timetableMap}
-              getSubjectColor={getSubjectColor}
-              onGenerate={handleGenerate}
-            />
+            <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-8">
+              {/* 시간표 */}
+              <TimetableSection
+                timetable={timetable}
+                subjects={subjects}
+                isGenerating={isGenerating}
+                days={days}
+                hours={hours}
+                timetableMap={timetableMap}
+                getSubjectColor={getSubjectColor}
+                onGenerate={handleGenerate}
+              />
+
+              {/* 대시보드 */}
+              <DashboardPanel
+                subjects={subjects}
+                // TODO: 실제 과제 데이터를 전달할 수 있도록 hooks 연동 예정
+              />
+            </div>
           </div>
 
           <MobileFAB isLoading={isLoading} onAddClick={handleAddClick} />
