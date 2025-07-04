@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient"
 import { useAuth } from "@/hooks/useAuth"
 import { useSubjects, type Subject } from "@/hooks/useSubjects"
 import { showToast, ToastContainer } from "./components/toast"
+import { BookOpen, Plus } from "lucide-react"
 
 // Components
 import Sidebar from "./sidebar/sidebar"
@@ -16,6 +17,7 @@ import { TimetableSection } from "./components/timetable-section"
 import { MobileFAB } from "./components/mobile-fab"
 import { SubjectModal } from "./components/SubjectModal"
 import { ProfileModal } from "./components/ProfileModal"
+import { TimerModal } from "./components/TimerModal"
 
 type TimetableSlot = {
   dayofweek: string
@@ -52,6 +54,8 @@ export default function Page() {
   const [timetable, setTimetable] = useState<TimetableSlot[]>([])
   const [timeError, setTimeError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [showSubjectModal, setShowSubjectModal] = useState(false) // 과목 관리 모달 상태 추가
+  const [showTimerModal, setShowTimerModal] = useState(false) // 타이머 모달 상태 추가
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -456,18 +460,41 @@ export default function Page() {
         <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         <div className="flex-1 font-sans lg:ml-0 relative z-10">
-          <Header onProfileClick={() => setShowProfileModal(true)} />
+          <Header 
+            onProfileClick={() => setShowProfileModal(true)} 
+            onTimerClick={() => setShowTimerModal(true)}
+          />
 
-          <div className="flex flex-col-reverse xl:flex-row gap-4 sm:gap-6 lg:gap-8 p-3 sm:p-6 lg:p-8 max-w-[95rem] mx-auto">
-            <SubjectManagement
-              subjects={subjects}
-              isLoading={isLoading}
-              days={days}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onAddClick={handleAddClick}
-            />
+          <div className="flex flex-col gap-4 sm:gap-6 lg:gap-8 p-3 sm:p-6 lg:p-8 max-w-[95rem] mx-auto">
+            {/* 과목 관리 버튼 */}
+            <motion.div
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+              className="flex justify-center"
+            >
+              <motion.button
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowSubjectModal(true)}
+                className="flex items-center gap-3 px-6 py-4 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-300/50 backdrop-blur-sm border border-white/20"
+              >
+                <motion.div
+                  whileHover={{ rotate: 180 }}
+                  transition={{ duration: 0.4 }}
+                  className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center"
+                >
+                  <BookOpen className="h-4 w-4 text-white" />
+                </motion.div>
+                <span className="font-medium text-lg">과목 관리</span>
+                <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-medium">
+                  {subjects.length}개
+                </span>
+                <Plus className="h-5 w-5 text-white/80" />
+              </motion.button>
+            </motion.div>
 
+            {/* 시간표 영역 - 더 넓은 공간 차지 */}
             <TimetableSection
               timetable={timetable}
               subjects={subjects}
@@ -505,6 +532,68 @@ export default function Page() {
             onLogout={handleLogout}
             onSettingsClick={() => router.push("/settings")}
           />
+
+          <TimerModal 
+            isOpen={showTimerModal}
+            onClose={() => setShowTimerModal(false)}
+          />
+
+          {/* 과목 관리 모달 */}
+          {showSubjectModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowSubjectModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                transition={{ type: "spring", duration: 0.5 }}
+                className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                      <motion.div
+                        whileHover={{ rotate: 180 }}
+                        transition={{ duration: 0.4 }}
+                        className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center"
+                      >
+                        <BookOpen className="h-5 w-5 text-white" />
+                      </motion.div>
+                      과목 관리
+                      <span className="text-lg font-normal text-gray-500 bg-gray-100/80 px-3 py-1 rounded-full">
+                        {subjects.length}개
+                      </span>
+                    </h2>
+                    <motion.button
+                      whileHover={{ scale: 1.1, rotate: 90 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setShowSubjectModal(false)}
+                      className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors"
+                    >
+                      <Plus className="h-5 w-5 text-gray-600 rotate-45" />
+                    </motion.button>
+                  </div>
+                </div>
+                
+                <div className="p-6 max-h-[70vh] overflow-y-auto">
+                  <SubjectManagement
+                    subjects={subjects}
+                    isLoading={isLoading}
+                    days={days}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onAddClick={handleAddClick}
+                  />
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
         </div>
       </motion.div>
 

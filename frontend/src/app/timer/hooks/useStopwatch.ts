@@ -1,13 +1,19 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { showToast } from '../../components/toast';
 import type { StopwatchState, LapTime } from '../types';
 
 interface UseStopwatchProps {
   playIntervalSound: () => void;
   playSuccessSound: () => void;
+  onIntervalReached?: (intervalNumber: number) => void;
+  onTargetReached?: () => void;
 }
 
-export const useStopwatch = ({ playIntervalSound, playSuccessSound }: UseStopwatchProps) => {
+export const useStopwatch = ({ 
+  playIntervalSound, 
+  playSuccessSound,
+  onIntervalReached,
+  onTargetReached 
+}: UseStopwatchProps) => {
   const [stopwatchTime, setStopwatchTime] = useState(0);
   const [stopwatchState, setStopwatchState] = useState<StopwatchState>("idle");
   const [lapTimes, setLapTimes] = useState<LapTime[]>([]);
@@ -40,11 +46,10 @@ export const useStopwatch = ({ playIntervalSound, playSuccessSound }: UseStopwat
                 playIntervalSound();
               }
               
-              showToast({ 
-                type: 'info', 
-                title: '인터벌 알림', 
-                message: `인터벌 ${currentInterval} 도달! ⏰` 
-              });
+              // 콜백 호출
+              if (onIntervalReached) {
+                setTimeout(() => onIntervalReached(currentInterval), 0);
+              }
               
               // 진동 (모바일)
               if (navigator.vibrate) {
@@ -60,11 +65,10 @@ export const useStopwatch = ({ playIntervalSound, playSuccessSound }: UseStopwat
               playSuccessSound();
             }
             
-            showToast({ 
-              type: 'success', 
-              title: '목표 달성!', 
-              message: '🎯 목표 시간에 도달했습니다! 축하합니다!' 
-            });
+            // 콜백 호출
+            if (onTargetReached) {
+              setTimeout(() => onTargetReached(), 0);
+            }
             
             // 진동 (모바일)
             if (navigator.vibrate) {
@@ -91,7 +95,7 @@ export const useStopwatch = ({ playIntervalSound, playSuccessSound }: UseStopwat
         intervalRef.current = null;
       }
     };
-  }, [stopwatchState, intervalEnabled, intervalTime, targetEnabled, targetTime, soundEnabled, playIntervalSound, playSuccessSound]);
+  }, [stopwatchState, intervalEnabled, intervalTime, targetEnabled, targetTime, soundEnabled, playIntervalSound, playSuccessSound, onIntervalReached, onTargetReached]);
 
   // Stopwatch functions
   const startStopwatch = useCallback(() => {

@@ -1,18 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { showToast } from '../../components/toast';
 import type { TimerState, TimerConfig } from '../types';
 
 interface UseTimerProps {
   playNotificationSound: () => void;
+  onTimerComplete?: () => void;
 }
 
-export const useTimer = ({ playNotificationSound }: UseTimerProps) => {
+export const useTimer = ({ playNotificationSound, onTimerComplete }: UseTimerProps) => {
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(5);
   const [seconds, setSeconds] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [timerState, setTimerState] = useState<TimerState>("idle");
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerCompletedRef = useRef(false);
 
   const totalSeconds = hours * 3600 + minutes * 60 + seconds;
 
@@ -24,15 +25,14 @@ export const useTimer = ({ playNotificationSound }: UseTimerProps) => {
           if (prev <= 1) {
             setTimerState("idle");
             
-            // 멀티 모달 알림
-            showToast({
-              type: 'success',
-              title: '⏰ 타이머 완료!',
-              message: '설정한 시간이 끝났습니다.'
-            });
-            
             // 알림 소리
             playNotificationSound();
+            
+            // 완료 콜백 호출 (StrictMode 중복 방지)
+            if (!timerCompletedRef.current) {
+              timerCompletedRef.current = true;
+              if (onTimerComplete) setTimeout(() => onTimerComplete(), 0);
+            }
             
             // 브라우저 알림
             if (Notification.permission === "granted") {
@@ -74,7 +74,7 @@ export const useTimer = ({ playNotificationSound }: UseTimerProps) => {
         timerIntervalRef.current = null;
       }
     };
-  }, [timerState, timeLeft, playNotificationSound]);
+  }, [timerState, timeLeft, playNotificationSound, onTimerComplete]);
 
   // 타이머 시작
   const startTimer = useCallback(() => {
@@ -100,6 +100,7 @@ export const useTimer = ({ playNotificationSound }: UseTimerProps) => {
     setHours(0);
     setMinutes(5);
     setSeconds(0);
+    timerCompletedRef.current = false;
   }, []);
 
   // 시간 조정
