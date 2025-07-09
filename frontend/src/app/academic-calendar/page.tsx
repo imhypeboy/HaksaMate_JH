@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Calendar, Bell, Clock, AlertTriangle, Filter, Star, GraduationCap, BookOpen, PartyPopper, Users, MapPin, Search, Sun, Moon } from "lucide-react"
+import { Calendar, Bell, Clock, AlertTriangle, Filter, Star, GraduationCap, BookOpen, PartyPopper, Users, MapPin, Search, Sun, Moon, ChevronLeft, ChevronRight, Grid3x3, CalendarDays } from "lucide-react"
 import Sidebar from "../sidebar/sidebar"
 import { supabase } from "@/lib/supabaseClient"
 
@@ -20,6 +20,266 @@ interface AcademicEvent {
   icon?: string
 }
 
+// 날짜 계산 유틸리티 함수
+const calculateDaysLeft = (startDate: string): number => {
+  const today = new Date()
+  const eventDate = new Date(startDate)
+  const diffTime = eventDate.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  return diffDays
+}
+
+// 데이터를 컴포넌트 외부로 이동 (상수화)
+const ACADEMIC_EVENTS_RAW = [
+  // 2025년 7월
+  {
+    id: 1,
+    title: "계절학기 성적입력",
+    description: "하계 계절학기 성적 입력 기간입니다.",
+    startDate: "2025-07-10",
+    endDate: "2025-07-15",
+    category: "성적" as const,
+    priority: "보통" as const,
+    icon: "📝"
+  },
+  {
+    id: 2,
+    title: "계절학기 성적확인",
+    description: "하계 계절학기 성적을 확인할 수 있습니다.",
+    startDate: "2025-07-16",
+    category: "성적" as const,
+    priority: "보통" as const,
+    icon: "📊"
+  },
+  {
+    id: 3,
+    title: "졸업사정회",
+    description: "졸업 요건 심사가 진행됩니다.",
+    startDate: "2025-07-28",
+    category: "졸업" as const,
+    priority: "높음" as const,
+    icon: "🎓"
+  },
+  {
+    id: 4,
+    title: "예비수강신청",
+    description: "다음 학기 예비 수강신청 기간입니다.",
+    startDate: "2025-07-28",
+    endDate: "2025-07-30",
+    category: "수강신청" as const,
+    priority: "높음" as const,
+    icon: "📚"
+  },
+  // 2025년 3월
+  {
+    id: 5,
+    title: "삼일절",
+    description: "3·1절 국경일입니다.",
+    startDate: "2025-03-01",
+    category: "공휴일" as const,
+    priority: "낮음" as const,
+    icon: "🇰🇷"
+  },
+  {
+    id: 6,
+    title: "개강 / 입학식",
+    description: "2025학년도 1학기 개강 및 입학식이 있습니다.",
+    startDate: "2025-03-04",
+    category: "개강" as const,
+    priority: "높음" as const,
+    icon: "🏫"
+  },
+  {
+    id: 7,
+    title: "수강과목 중도포기",
+    description: "수강 과목 중도포기 신청 기간입니다. (4주차)",
+    startDate: "2025-03-25",
+    endDate: "2025-03-27",
+    category: "수강신청" as const,
+    priority: "보통" as const,
+    icon: "❌"
+  },
+  // 2025년 4월
+  {
+    id: 8,
+    title: "중간강의평가",
+    description: "중간 강의평가 기간입니다. (7주차)",
+    startDate: "2025-04-14",
+    endDate: "2025-05-02",
+    category: "기타" as const,
+    priority: "보통" as const,
+    icon: "⭐"
+  },
+  {
+    id: 9,
+    title: "교직원 영성축제",
+    description: "교직원 영성축제가 개최됩니다.",
+    startDate: "2025-04-21",
+    endDate: "2025-04-25",
+    category: "축제" as const,
+    priority: "낮음" as const,
+    icon: "🎉"
+  },
+  {
+    id: 10,
+    title: "중간고사",
+    description: "1학기 중간고사 기간입니다. (8주차)",
+    startDate: "2025-04-22",
+    endDate: "2025-04-28",
+    category: "시험" as const,
+    priority: "높음" as const,
+    icon: "📝"
+  },
+  // 2025년 5월
+  {
+    id: 11,
+    title: "근로자의 날",
+    description: "근로자의 날 공휴일입니다.",
+    startDate: "2025-05-01",
+    category: "공휴일" as const,
+    priority: "낮음" as const,
+    icon: "👷"
+  },
+  {
+    id: 12,
+    title: "학교현장 교육실습",
+    description: "교육실습생 학교현장 실습 기간입니다.",
+    startDate: "2025-05-07",
+    endDate: "2025-05-30",
+    category: "실습" as const,
+    priority: "높음" as const,
+    icon: "🏫"
+  },
+  {
+    id: 13,
+    title: "사랑나눔축제",
+    description: "대학 사랑나눔축제가 개최됩니다.",
+    startDate: "2025-05-12",
+    endDate: "2025-05-16",
+    category: "축제" as const,
+    priority: "보통" as const,
+    icon: "❤️"
+  },
+  {
+    id: 14,
+    title: "계절학기 수강신청",
+    description: "하계 계절학기 수강신청 기간입니다.",
+    startDate: "2025-05-26",
+    endDate: "2025-05-28",
+    category: "수강신청" as const,
+    priority: "보통" as const,
+    icon: "📚"
+  },
+  // 2025년 6월
+  {
+    id: 15,
+    title: "현충일",
+    description: "현충일 국경일입니다.",
+    startDate: "2025-06-06",
+    category: "공휴일" as const,
+    priority: "낮음" as const,
+    icon: "🇰🇷"
+  },
+  {
+    id: 16,
+    title: "기말고사",
+    description: "1학기 기말고사 기간입니다. (15주차)",
+    startDate: "2025-06-10",
+    endDate: "2025-06-16",
+    category: "시험" as const,
+    priority: "높음" as const,
+    icon: "📝"
+  },
+  {
+    id: 17,
+    title: "성적입력기간",
+    description: "교수님들의 성적 입력 기간입니다.",
+    startDate: "2025-06-10",
+    endDate: "2025-06-23",
+    category: "성적" as const,
+    priority: "보통" as const,
+    icon: "📊"
+  },
+  {
+    id: 18,
+    title: "하계계절학기",
+    description: "여름 계절학기가 진행됩니다.",
+    startDate: "2025-06-23",
+    endDate: "2025-07-11",
+    category: "개강" as const,
+    priority: "보통" as const,
+    icon: "☀️"
+  },
+  // 2025년 8월
+  {
+    id: 19,
+    title: "본수강신청",
+    description: "2학기 본 수강신청 기간입니다.",
+    startDate: "2025-08-04",
+    endDate: "2025-08-06",
+    category: "수강신청" as const,
+    priority: "높음" as const,
+    icon: "📚"
+  },
+  {
+    id: 20,
+    title: "후기 학위수여식",
+    description: "후기 졸업식이 진행됩니다.",
+    startDate: "2025-08-14",
+    category: "졸업" as const,
+    priority: "높음" as const,
+    icon: "🎓"
+  },
+  {
+    id: 21,
+    title: "재학생 등록기간",
+    description: "재학생 등록 기간입니다.",
+    startDate: "2025-08-18",
+    endDate: "2025-08-22",
+    category: "등록" as const,
+    priority: "높음" as const,
+    icon: "📋"
+  },
+  // 2025년 9월
+  {
+    id: 22,
+    title: "2학기 개강",
+    description: "2025학년도 2학기가 시작됩니다.",
+    startDate: "2025-09-01",
+    category: "개강" as const,
+    priority: "높음" as const,
+    icon: "🏫"
+  },
+  {
+    id: 23,
+    title: "수강신청 확인 및 정정",
+    description: "수강신청 확인 및 정정 기간입니다. (1주차)",
+    startDate: "2025-09-01",
+    endDate: "2025-09-05",
+    category: "수강신청" as const,
+    priority: "높음" as const,
+    icon: "✏️"
+  },
+  {
+    id: 24,
+    title: "천보축전",
+    description: "대학 천보축전이 개최됩니다.",
+    startDate: "2025-09-29",
+    category: "축제" as const,
+    priority: "보통" as const,
+    icon: "🎊"
+  },
+  {
+    id: 25,
+    title: "체육대회",
+    description: "전교 체육대회가 열립니다.",
+    startDate: "2025-09-30",
+    category: "축제" as const,
+    priority: "보통" as const,
+    icon: "🏃"
+  }
+] as const
+
 export default function AcademicCalendarPage() {
   const router = useRouter()
   const [selectedCategory, setSelectedCategory] = useState<string>("전체")
@@ -28,285 +288,58 @@ export default function AcademicCalendarPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [darkMode, setDarkMode] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [viewMode, setViewMode] = useState<"list" | "grid">("grid")
-
-  // 2025-2026년 최신 학사 일정 데이터
-  const academicEvents: AcademicEvent[] = [
-    // 2025년 7월
-    {
-      id: 1,
-      title: "계절학기 성적입력",
-      description: "하계 계절학기 성적 입력 기간입니다.",
-      startDate: "2025-07-10",
-      endDate: "2025-07-15",
-      category: "성적",
-      priority: "보통",
-      daysLeft: 180,
-      icon: "📝"
-    },
-    {
-      id: 2,
-      title: "계절학기 성적확인",
-      description: "하계 계절학기 성적을 확인할 수 있습니다.",
-      startDate: "2025-07-16",
-      category: "성적",
-      priority: "보통",
-      daysLeft: 186,
-      icon: "📊"
-    },
-    {
-      id: 3,
-      title: "졸업사정회",
-      description: "졸업 요건 심사가 진행됩니다.",
-      startDate: "2025-07-28",
-      category: "졸업",
-      priority: "높음",
-      daysLeft: 198,
-      icon: "🎓"
-    },
-    {
-      id: 4,
-      title: "예비수강신청",
-      description: "다음 학기 예비 수강신청 기간입니다.",
-      startDate: "2025-07-28",
-      endDate: "2025-07-30",
-      category: "수강신청",
-      priority: "높음",
-      daysLeft: 198,
-      icon: "📚"
-    },
-    // 2025년 3월
-    {
-      id: 5,
-      title: "삼일절",
-      description: "3·1절 국경일입니다.",
-      startDate: "2025-03-01",
-      category: "공휴일",
-      priority: "낮음",
-      daysLeft: 60,
-      icon: "🇰🇷"
-    },
-    {
-      id: 6,
-      title: "개강 / 입학식",
-      description: "2025학년도 1학기 개강 및 입학식이 있습니다.",
-      startDate: "2025-03-04",
-      category: "개강",
-      priority: "높음",
-      daysLeft: 63,
-      icon: "🏫"
-    },
-    {
-      id: 7,
-      title: "수강과목 중도포기",
-      description: "수강 과목 중도포기 신청 기간입니다. (4주차)",
-      startDate: "2025-03-25",
-      endDate: "2025-03-27",
-      category: "수강신청",
-      priority: "보통",
-      daysLeft: 84,
-      icon: "❌"
-    },
-    // 2025년 4월
-    {
-      id: 8,
-      title: "중간강의평가",
-      description: "중간 강의평가 기간입니다. (7주차)",
-      startDate: "2025-04-14",
-      endDate: "2025-05-02",
-      category: "기타",
-      priority: "보통",
-      daysLeft: 104,
-      icon: "⭐"
-    },
-    {
-      id: 9,
-      title: "교직원 영성축제",
-      description: "교직원 영성축제가 개최됩니다.",
-      startDate: "2025-04-21",
-      endDate: "2025-04-25",
-      category: "축제",
-      priority: "낮음",
-      daysLeft: 111,
-      icon: "🎉"
-    },
-    {
-      id: 10,
-      title: "중간고사",
-      description: "1학기 중간고사 기간입니다. (8주차)",
-      startDate: "2025-04-22",
-      endDate: "2025-04-28",
-      category: "시험",
-      priority: "높음",
-      daysLeft: 112,
-      icon: "📝"
-    },
-    // 2025년 5월
-    {
-      id: 11,
-      title: "근로자의 날",
-      description: "근로자의 날 공휴일입니다.",
-      startDate: "2025-05-01",
-      category: "공휴일",
-      priority: "낮음",
-      daysLeft: 121,
-      icon: "👷"
-    },
-    {
-      id: 12,
-      title: "학교현장 교육실습",
-      description: "교육실습생 학교현장 실습 기간입니다.",
-      startDate: "2025-05-07",
-      endDate: "2025-05-30",
-      category: "실습",
-      priority: "높음",
-      daysLeft: 127,
-      icon: "🏫"
-    },
-    {
-      id: 13,
-      title: "사랑나눔축제",
-      description: "대학 사랑나눔축제가 개최됩니다.",
-      startDate: "2025-05-12",
-      endDate: "2025-05-16",
-      category: "축제",
-      priority: "보통",
-      daysLeft: 132,
-      icon: "❤️"
-    },
-    {
-      id: 14,
-      title: "계절학기 수강신청",
-      description: "하계 계절학기 수강신청 기간입니다.",
-      startDate: "2025-05-26",
-      endDate: "2025-05-28",
-      category: "수강신청",
-      priority: "보통",
-      daysLeft: 146,
-      icon: "📚"
-    },
-    // 2025년 6월
-    {
-      id: 15,
-      title: "현충일",
-      description: "현충일 국경일입니다.",
-      startDate: "2025-06-06",
-      category: "공휴일",
-      priority: "낮음",
-      daysLeft: 157,
-      icon: "🇰🇷"
-    },
-    {
-      id: 16,
-      title: "기말고사",
-      description: "1학기 기말고사 기간입니다. (15주차)",
-      startDate: "2025-06-10",
-      endDate: "2025-06-16",
-      category: "시험",
-      priority: "높음",
-      daysLeft: 161,
-      icon: "📝"
-    },
-    {
-      id: 17,
-      title: "성적입력기간",
-      description: "교수님들의 성적 입력 기간입니다.",
-      startDate: "2025-06-10",
-      endDate: "2025-06-23",
-      category: "성적",
-      priority: "보통",
-      daysLeft: 161,
-      icon: "📊"
-    },
-    {
-      id: 18,
-      title: "하계계절학기",
-      description: "여름 계절학기가 진행됩니다.",
-      startDate: "2025-06-23",
-      endDate: "2025-07-11",
-      category: "개강",
-      priority: "보통",
-      daysLeft: 174,
-      icon: "☀️"
-    },
-    // 2025년 8월
-    {
-      id: 19,
-      title: "본수강신청",
-      description: "2학기 본 수강신청 기간입니다.",
-      startDate: "2025-08-04",
-      endDate: "2025-08-06",
-      category: "수강신청",
-      priority: "높음",
-      daysLeft: 215,
-      icon: "📚"
-    },
-    {
-      id: 20,
-      title: "후기 학위수여식",
-      description: "후기 졸업식이 진행됩니다.",
-      startDate: "2025-08-14",
-      category: "졸업",
-      priority: "높음",
-      daysLeft: 225,
-      icon: "🎓"
-    },
-    {
-      id: 21,
-      title: "재학생 등록기간",
-      description: "재학생 등록 기간입니다.",
-      startDate: "2025-08-18",
-      endDate: "2025-08-22",
-      category: "등록",
-      priority: "높음",
-      daysLeft: 229,
-      icon: "📋"
-    },
-    // 2025년 9월
-    {
-      id: 22,
-      title: "2학기 개강",
-      description: "2025학년도 2학기가 시작됩니다.",
-      startDate: "2025-09-01",
-      category: "개강",
-      priority: "높음",
-      daysLeft: 243,
-      icon: "🏫"
-    },
-    {
-      id: 23,
-      title: "수강신청 확인 및 정정",
-      description: "수강신청 확인 및 정정 기간입니다. (1주차)",
-      startDate: "2025-09-01",
-      endDate: "2025-09-05",
-      category: "수강신청",
-      priority: "높음",
-      daysLeft: 243,
-      icon: "✏️"
-    },
-    {
-      id: 24,
-      title: "천보축전",
-      description: "대학 천보축전이 개최됩니다.",
-      startDate: "2025-09-29",
-      category: "축제",
-      priority: "보통",
-      daysLeft: 271,
-      icon: "🎊"
-    },
-    {
-      id: 25,
-      title: "체육대회",
-      description: "전교 체육대회가 열립니다.",
-      startDate: "2025-09-30",
-      category: "축제",
-      priority: "보통",
-      daysLeft: 272,
-      icon: "🏃"
-    }
-  ]
+  const [viewMode, setViewMode] = useState<"grid" | "calendar">("grid")
+  const [notificationSettings, setNotificationSettings] = useState<Set<number>>(new Set())
+  const [isLoading, setIsLoading] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+  
+  // 캘린더 관련 상태
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
 
   const categories = ["전체", "성적", "수강신청", "시험", "축제", "공휴일", "등록", "실습", "개강", "졸업", "기타"]
+
+  // 토스트 메시지 표시 함수
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3000)
+  }, [])
+
+  // 알림 설정 토글 함수
+  const toggleNotification = useCallback(async (eventId: number, eventTitle: string) => {
+    setIsLoading(true)
+    try {
+      // 실제 API 호출을 시뮬레이션
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      setNotificationSettings(prev => {
+        const newSettings = new Set(prev)
+        if (newSettings.has(eventId)) {
+          newSettings.delete(eventId)
+          showToast(`"${eventTitle}" 알림이 해제되었습니다`, 'info')
+        } else {
+          newSettings.add(eventId)
+          showToast(`"${eventTitle}" 알림이 설정되었습니다`, 'success')
+        }
+        
+        // localStorage에 저장
+        localStorage.setItem('notificationSettings', JSON.stringify([...newSettings]))
+        return newSettings
+      })
+    } catch (error) {
+      showToast('알림 설정 중 오류가 발생했습니다', 'error')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [showToast])
+
+  // 실제 날짜 계산이 포함된 이벤트 데이터
+  const academicEvents: AcademicEvent[] = useMemo(() => {
+    return ACADEMIC_EVENTS_RAW.map(event => ({
+      ...event,
+      daysLeft: calculateDaysLeft(event.startDate)
+    }))
+  }, [])
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -322,13 +355,40 @@ export default function AcademicCalendarPage() {
     checkAuth()
   }, [router])
 
-  // 다크모드 감지
+  // 다크모드 localStorage 지원 추가
   useEffect(() => {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    setDarkMode(prefersDark)
+    const savedDarkMode = localStorage.getItem('darkMode')
+    if (savedDarkMode !== null) {
+      setDarkMode(JSON.parse(savedDarkMode))
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      setDarkMode(prefersDark)
+    }
   }, [])
 
-  const getFilteredEvents = () => {
+  // 다크모드 토글 함수 개선
+  const toggleDarkMode = useCallback(() => {
+    setDarkMode(prev => {
+      const newValue = !prev
+      localStorage.setItem('darkMode', JSON.stringify(newValue))
+      return newValue
+    })
+  }, [])
+
+  // localStorage에서 알림 설정 복원
+  useEffect(() => {
+    const savedNotifications = localStorage.getItem('notificationSettings')
+    if (savedNotifications) {
+      try {
+        const settings = JSON.parse(savedNotifications)
+        setNotificationSettings(new Set(settings))
+      } catch (error) {
+        console.error('Failed to load notification settings:', error)
+      }
+    }
+  }, [])
+
+  const getFilteredEvents = useCallback(() => {
     let filtered = academicEvents
     
     if (selectedCategory !== "전체") {
@@ -343,16 +403,20 @@ export default function AcademicCalendarPage() {
     }
     
     return filtered.sort((a, b) => (a.daysLeft || 0) - (b.daysLeft || 0))
-  }
+  }, [academicEvents, selectedCategory, searchTerm])
 
-  const getUpcomingEvents = () => {
+  const getUpcomingEvents = useCallback(() => {
     return academicEvents
-      .filter((event) => event.daysLeft && event.daysLeft <= 30)
+      .filter((event) => event.daysLeft !== undefined && event.daysLeft >= 0 && event.daysLeft <= 30)
       .sort((a, b) => (a.daysLeft || 0) - (b.daysLeft || 0))
       .slice(0, 3)
-  }
+  }, [academicEvents])
 
-  const getPriorityColor = (priority: string) => {
+  // 메모이제이션된 결과
+  const filteredEvents = useMemo(() => getFilteredEvents(), [getFilteredEvents])
+  const upcomingEvents = useMemo(() => getUpcomingEvents(), [getUpcomingEvents])
+
+  const getPriorityColor = useCallback((priority: string) => {
     const colors = {
       높음: darkMode 
         ? "bg-red-900/30 text-red-300 border-red-700/50 backdrop-blur-sm"
@@ -365,9 +429,9 @@ export default function AcademicCalendarPage() {
         : "bg-emerald-50 text-emerald-700 border-emerald-200/50 backdrop-blur-sm"
     }
     return colors[priority as keyof typeof colors] || colors.보통
-  }
+  }, [darkMode])
 
-  const getCategoryColor = (category: string) => {
+  const getCategoryColor = useCallback((category: string) => {
     const colors = {
       성적: darkMode ? "bg-blue-900/30 text-blue-300 border-blue-700/50" : "bg-blue-50 text-blue-700 border-blue-200/50",
       수강신청: darkMode ? "bg-purple-900/30 text-purple-300 border-purple-700/50" : "bg-purple-50 text-purple-700 border-purple-200/50",
@@ -381,9 +445,9 @@ export default function AcademicCalendarPage() {
       기타: darkMode ? "bg-gray-700/30 text-gray-300 border-gray-600/50" : "bg-gray-50 text-gray-700 border-gray-200/50"
     }
     return colors[category as keyof typeof colors] || colors.기타
-  }
+  }, [darkMode])
 
-  const getCategoryIcon = (category: string) => {
+  const getCategoryIcon = useCallback((category: string) => {
     const icons = {
       성적: <Star className="w-4 h-4" />,
       수강신청: <BookOpen className="w-4 h-4" />,
@@ -397,10 +461,7 @@ export default function AcademicCalendarPage() {
       기타: <Calendar className="w-4 h-4" />
     }
     return icons[category as keyof typeof icons] || icons.기타
-  }
-
-  const filteredEvents = getFilteredEvents()
-  const upcomingEvents = getUpcomingEvents()
+  }, [])
 
   const themeClasses = darkMode 
     ? "bg-gray-900 text-gray-100" 
@@ -410,13 +471,288 @@ export default function AcademicCalendarPage() {
     ? "bg-gray-800/50 backdrop-blur-md border-gray-700/50"
     : "bg-white/70 backdrop-blur-md border-white/50 shadow-xl shadow-blue-100/20"
 
+  // 캘린더 유틸리티 함수들
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear()
+    const month = date.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    const startDate = new Date(firstDay)
+    startDate.setDate(startDate.getDate() - firstDay.getDay()) // 주의 첫째 날까지 포함
+    
+    const days = []
+    const currentDay = new Date(startDate)
+    
+    // 6주 분량의 날짜 생성 (42일)
+    for (let i = 0; i < 42; i++) {
+      days.push(new Date(currentDay))
+      currentDay.setDate(currentDay.getDate() + 1)
+    }
+    
+    return days
+  }
+
+  const getEventsForDate = useCallback((date: Date) => {
+    const dateStr = date.toISOString().split('T')[0]
+    return filteredEvents.filter(event => {
+      const eventStart = event.startDate
+      const eventEnd = event.endDate || event.startDate
+      return dateStr >= eventStart && dateStr <= eventEnd
+    })
+  }, [filteredEvents])
+
+  const isToday = (date: Date) => {
+    const today = new Date()
+    return date.toDateString() === today.toDateString()
+  }
+
+  const isSameMonth = (date: Date, month: Date) => {
+    return date.getMonth() === month.getMonth() && date.getFullYear() === month.getFullYear()
+  }
+
+  const goToPreviousMonth = () => {
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
+  }
+
+  const goToNextMonth = () => {
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
+  }
+
+  const goToToday = () => {
+    setCurrentDate(new Date())
+    setSelectedDate(null)
+  }
+
+  // 캘린더 뷰 컴포넌트
+  const CalendarView = () => {
+    const days = getDaysInMonth(currentDate)
+    const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"]
+    const dayNames = ["일", "월", "화", "수", "목", "금", "토"]
+
+    return (
+      <div className="space-y-6">
+        {/* 캘린더 헤더 */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h3 className="text-2xl font-bold">
+              {currentDate.getFullYear()}년 {monthNames[currentDate.getMonth()]}
+            </h3>
+            <button
+              onClick={goToToday}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+                darkMode 
+                  ? "bg-blue-600/20 text-blue-400 hover:bg-blue-600/30" 
+                  : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+              }`}
+            >
+              오늘
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goToPreviousMonth}
+              className={`p-2 rounded-xl transition-all duration-300 hover:scale-110 ${
+                darkMode 
+                  ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50" 
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+              aria-label="이전 달"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={goToNextMonth}
+              className={`p-2 rounded-xl transition-all duration-300 hover:scale-110 ${
+                darkMode 
+                  ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50" 
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+              aria-label="다음 달"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* 요일 헤더 */}
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {dayNames.map((day, index) => (
+            <div
+              key={day}
+              className={`p-3 text-center text-sm font-semibold ${
+                index === 0 
+                  ? "text-red-500" 
+                  : index === 6 
+                    ? "text-blue-500" 
+                    : darkMode ? "text-gray-300" : "text-gray-700"
+              }`}
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* 캘린더 그리드 */}
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((day, index) => {
+            const dayEvents = getEventsForDate(day)
+            const isCurrentMonth = isSameMonth(day, currentDate)
+            const isTodayDate = isToday(day)
+            const isSelected = selectedDate && day.toDateString() === selectedDate.toDateString()
+
+            return (
+              <div
+                key={index}
+                onClick={() => setSelectedDate(day)}
+                className={`min-h-[120px] p-2 rounded-xl border-2 transition-all duration-300 cursor-pointer hover:scale-[1.02] ${
+                  isSelected
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                    : isTodayDate
+                      ? "border-blue-300 bg-blue-25 dark:bg-blue-900/10"
+                      : darkMode
+                        ? "border-gray-700/50 bg-gray-800/30 hover:bg-gray-700/50"
+                        : "border-gray-200/50 bg-white/50 hover:bg-gray-50"
+                } ${!isCurrentMonth && "opacity-40"}`}
+              >
+                {/* 날짜 */}
+                <div className={`text-sm font-semibold mb-2 ${
+                  isTodayDate
+                    ? "text-blue-600 dark:text-blue-400"
+                    : index % 7 === 0
+                      ? "text-red-500"
+                      : index % 7 === 6
+                        ? "text-blue-500"
+                        : darkMode ? "text-gray-300" : "text-gray-700"
+                }`}>
+                  {day.getDate()}
+                </div>
+
+                {/* 일정들 */}
+                <div className="space-y-1">
+                  {dayEvents.slice(0, 3).map((event) => (
+                    <div
+                      key={event.id}
+                      className={`px-2 py-1 rounded-lg text-xs font-medium truncate transition-all duration-300 hover:scale-105 ${getCategoryColor(event.category)}`}
+                      title={event.title}
+                    >
+                      <span className="mr-1">{event.icon}</span>
+                      {event.title}
+                    </div>
+                  ))}
+                  {dayEvents.length > 3 && (
+                    <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                      darkMode ? "bg-gray-600 text-gray-300" : "bg-gray-200 text-gray-700"
+                    }`}>
+                      +{dayEvents.length - 3}개 더
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* 선택된 날짜의 일정 상세 */}
+        {selectedDate && (
+          <div className={`${cardClasses} rounded-2xl p-6 mt-6`}>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xl font-bold">
+                {selectedDate.getFullYear()}년 {selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일 일정
+              </h4>
+              <button
+                onClick={() => setSelectedDate(null)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {getEventsForDate(selectedDate).length > 0 ? (
+              <div className="space-y-3">
+                {getEventsForDate(selectedDate).map((event) => (
+                  <div
+                    key={event.id}
+                    className={`p-4 rounded-xl border transition-all duration-300 hover:shadow-md ${
+                      darkMode ? 'bg-gray-700/30 border-gray-600/50' : 'bg-gray-50/50 border-gray-200/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">{event.icon}</span>
+                          <h5 className="font-semibold">{event.title}</h5>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(event.category)}`}>
+                            {event.category}
+                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(event.priority)}`}>
+                            {event.priority}
+                          </span>
+                        </div>
+                        <p className="text-sm opacity-75 mb-2">{event.description}</p>
+                        <div className="flex items-center text-sm opacity-60">
+                          <Calendar className="h-4 w-4 mr-1" />
+                          <span>
+                            {new Date(event.startDate).toLocaleDateString('ko-KR')}
+                            {event.endDate && ` ~ ${new Date(event.endDate).toLocaleDateString('ko-KR')}`}
+                          </span>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => toggleNotification(event.id, event.title)}
+                        className={`py-2 px-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-300 hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 text-sm ${
+                          isLoading ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? "설정 중..." : notificationSettings.has(event.id) ? "알림 해제" : "알림 설정"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                이 날에는 일정이 없습니다.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className={`flex min-h-screen transition-all duration-300 ${themeClasses}`}>
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       <div className="flex-1 font-sans pb-12">
+        {/* 토스트 메시지 */}
+        {toast && (
+          <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg backdrop-blur-md border transition-all duration-300 transform ${
+            toast.type === 'success' 
+              ? 'bg-green-500/90 text-white border-green-400/50' 
+              : toast.type === 'error'
+                ? 'bg-red-500/90 text-white border-red-400/50'
+                : 'bg-blue-500/90 text-white border-blue-400/50'
+          }`}>
+            <div className="flex items-center">
+              <span className="mr-2">
+                {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'}
+              </span>
+              <p className="font-medium">{toast.message}</p>
+              <button
+                onClick={() => setToast(null)}
+                className="ml-3 text-white/70 hover:text-white transition-colors"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 헤더 */}
-        <header className={`${cardClasses} py-6 px-4 flex justify-between items-center border-b sticky top-0 z-50`}>
+        <header className={`${cardClasses} py-6 px-4 flex justify-between items-center border-b sticky top-0 z-40`}>
           <div className="w-10"></div>
           <h1 className="text-2xl font-bold flex items-center">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mr-3 shadow-lg">
@@ -425,19 +761,20 @@ export default function AcademicCalendarPage() {
             학사 일정 알림
           </h1>
           <button
-            onClick={() => setDarkMode(!darkMode)}
-            className={`p-2 rounded-xl transition-all duration-300 ${
+            onClick={toggleDarkMode}
+            className={`p-2 rounded-xl transition-all duration-300 focus:ring-2 focus:ring-blue-500/50 focus:outline-none ${
               darkMode 
                 ? "bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30" 
                 : "bg-blue-500/20 text-blue-600 hover:bg-blue-500/30"
             }`}
+            aria-label={darkMode ? "라이트 모드로 전환" : "다크 모드로 전환"}
           >
             {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
         </header>
 
         <div className="max-w-7xl mx-auto py-8 px-4 space-y-8">
-          {/* 긴급 알림 - 글래스모피즘 디자인 */}
+          {/* 긴급 알림 - 조건 개선 */}
           {showNotifications && upcomingEvents.length > 0 && (
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-500/90 to-red-500/90 backdrop-blur-md border border-white/20 shadow-2xl">
               <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
@@ -449,7 +786,7 @@ export default function AcademicCalendarPage() {
                     </div>
                     <div>
                       <h2 className="text-2xl font-bold mb-2">🚨 긴급 알림</h2>
-                      <p className="opacity-90 mb-4">다가오는 중요한 학사 일정을 확인하세요!</p>
+                      <p className="opacity-90 mb-4">30일 이내 중요한 학사 일정을 확인하세요!</p>
                       <div className="grid gap-3">
                         {upcomingEvents.map((event) => (
                           <div
@@ -466,7 +803,7 @@ export default function AcademicCalendarPage() {
                               </div>
                               <div className="text-right">
                                 <span className="text-sm bg-white/20 px-3 py-1 rounded-full font-medium backdrop-blur-sm">
-                                  {event.daysLeft}일 남음
+                                  {event.daysLeft && event.daysLeft > 0 ? `${event.daysLeft}일 남음` : "진행중"}
                                 </span>
                               </div>
                             </div>
@@ -477,7 +814,8 @@ export default function AcademicCalendarPage() {
                   </div>
                   <button
                     onClick={() => setShowNotifications(false)}
-                    className="text-white/70 hover:text-white p-2 rounded-xl hover:bg-white/20 transition-all duration-300"
+                    className="text-white/70 hover:text-white p-2 rounded-xl hover:bg-white/20 transition-all duration-300 focus:ring-2 focus:ring-white/50 focus:outline-none"
+                    aria-label="긴급 알림 닫기"
                   >
                     ✕
                   </button>
@@ -486,58 +824,69 @@ export default function AcademicCalendarPage() {
             </div>
           )}
 
-          {/* 통계 카드 - 현대적인 그리드 */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className={`${cardClasses} p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
+          {/* 빈 상태 처리 개선 */}
+          {showNotifications && upcomingEvents.length === 0 && (
+            <div className={`${cardClasses} rounded-2xl p-6 text-center`}>
+              <div className="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                <span className="text-2xl">😌</span>
+              </div>
+              <h3 className="text-lg font-semibold mb-2">모든 일정이 여유롭습니다</h3>
+              <p className="text-sm opacity-70">30일 이내에 임박한 중요 일정이 없습니다.</p>
+            </div>
+          )}
+
+          {/* 통계 카드 - 반응형 개선 */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+            <div className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
               <div className="flex items-center">
-                <div className="w-14 h-14 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mr-4 shadow-lg">
-                  <Calendar className="h-7 w-7 text-white" />
+                <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mr-3 lg:mr-4 shadow-lg">
+                  <Calendar className="h-5 w-5 lg:h-7 lg:w-7 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold opacity-70">전체 일정</h3>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+                  <h3 className="text-sm lg:text-lg font-semibold opacity-70">전체 일정</h3>
+                  <p className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
                     {academicEvents.length}
                   </p>
                 </div>
               </div>
             </div>
             
-            <div className={`${cardClasses} p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
+            <div className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
               <div className="flex items-center">
-                <div className="w-14 h-14 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mr-4 shadow-lg">
-                  <Clock className="h-7 w-7 text-white" />
+                <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mr-3 lg:mr-4 shadow-lg">
+                  <Clock className="h-5 w-5 lg:h-7 lg:w-7 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold opacity-70">임박한 일정</h3>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                  <h3 className="text-sm lg:text-lg font-semibold opacity-70">임박한 일정</h3>
+                  <p className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
                     {upcomingEvents.length}
                   </p>
                 </div>
               </div>
             </div>
             
-            <div className={`${cardClasses} p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
+            <div className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
               <div className="flex items-center">
-                <div className="w-14 h-14 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mr-4 shadow-lg">
-                  <Bell className="h-7 w-7 text-white" />
+                <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mr-3 lg:mr-4 shadow-lg">
+                  <Bell className="h-5 w-5 lg:h-7 lg:w-7 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold opacity-70">알림 설정</h3>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                    ON
+                  <h3 className="text-sm lg:text-lg font-semibold opacity-70">알림 설정</h3>
+                  <p className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                    {notificationSettings.size}
                   </p>
                 </div>
               </div>
             </div>
             
-            <div className={`${cardClasses} p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
+            <div className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
               <div className="flex items-center">
-                <div className="w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mr-4 shadow-lg">
-                  <Star className="h-7 w-7 text-white" />
+                <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mr-3 lg:mr-4 shadow-lg">
+                  <Star className="h-5 w-5 lg:h-7 lg:w-7 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold opacity-70">중요 일정</h3>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  <h3 className="text-sm lg:text-lg font-semibold opacity-70">중요 일정</h3>
+                  <p className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                     {academicEvents.filter(e => e.priority === "높음").length}
                   </p>
                 </div>
@@ -545,35 +894,37 @@ export default function AcademicCalendarPage() {
             </div>
           </div>
 
-          {/* 검색 및 필터 */}
+          {/* 검색 및 필터 - 접근성 개선 */}
           <div className={`${cardClasses} rounded-2xl p-6`}>
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex-1 relative">
+              <div className="flex-1 relative w-full md:w-auto">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="text"
                   placeholder="일정 검색..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-12 pr-4 py-3 rounded-xl border transition-all duration-300 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 ${
+                  className={`w-full pl-12 pr-4 py-3 rounded-xl border transition-all duration-300 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:outline-none ${
                     darkMode 
                       ? "bg-gray-700/50 border-gray-600 text-gray-100 placeholder-gray-400" 
                       : "bg-white/50 border-gray-200 text-gray-900 placeholder-gray-500"
                   }`}
+                  aria-label="학사 일정 검색"
                 />
               </div>
               
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 w-full md:w-auto">
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4 opacity-70" />
                   <select
-                    className={`border rounded-xl px-4 py-3 transition-all duration-300 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 ${
+                    className={`border rounded-xl px-4 py-3 transition-all duration-300 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:outline-none ${
                       darkMode 
                         ? "bg-gray-700/50 border-gray-600 text-gray-100" 
                         : "bg-white/50 border-gray-200 text-gray-900"
                     }`}
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
+                    aria-label="카테고리 필터"
                   >
                     {categories.map((category) => (
                       <option key={category} value={category}>
@@ -583,26 +934,34 @@ export default function AcademicCalendarPage() {
                   </select>
                 </div>
                 
-                <div className="flex bg-gray-200 dark:bg-gray-700 rounded-xl p-1">
+                <div className="flex bg-gray-200 dark:bg-gray-700 rounded-xl p-1" role="tablist" aria-label="보기 모드 선택">
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`px-4 py-2 rounded-lg transition-all duration-300 ${
+                    className={`px-4 py-2 rounded-lg transition-all duration-300 focus:ring-2 focus:ring-blue-500/50 focus:outline-none flex items-center gap-2 ${
                       viewMode === "grid" 
                         ? "bg-white dark:bg-gray-600 shadow-md" 
                         : "hover:bg-white/50 dark:hover:bg-gray-600/50"
                     }`}
+                    role="tab"
+                    aria-selected={viewMode === "grid"}
+                    aria-controls="calendar-content"
                   >
+                    <Grid3x3 className="w-4 h-4" />
                     격자
                   </button>
                   <button
-                    onClick={() => setViewMode("list")}
-                    className={`px-4 py-2 rounded-lg transition-all duration-300 ${
-                      viewMode === "list" 
+                    onClick={() => setViewMode("calendar")}
+                    className={`px-4 py-2 rounded-lg transition-all duration-300 focus:ring-2 focus:ring-blue-500/50 focus:outline-none flex items-center gap-2 ${
+                      viewMode === "calendar" 
                         ? "bg-white dark:bg-gray-600 shadow-md" 
                         : "hover:bg-white/50 dark:hover:bg-gray-600/50"
                     }`}
+                    role="tab"
+                    aria-selected={viewMode === "calendar"}
+                    aria-controls="calendar-content"
                   >
-                    목록
+                    <CalendarDays className="w-4 h-4" />
+                    캘린더
                   </button>
                 </div>
               </div>
@@ -610,7 +969,7 @@ export default function AcademicCalendarPage() {
           </div>
 
           {/* 학사 일정 목록 */}
-          <div className={`${cardClasses} rounded-2xl p-6`}>
+          <div className={`${cardClasses} rounded-2xl p-6`} id="calendar-content">
             <h2 className="text-2xl font-bold mb-6 flex items-center">
               <Calendar className="w-6 h-6 mr-3 text-blue-600" />
               학사 일정
@@ -675,71 +1034,20 @@ export default function AcademicCalendarPage() {
                       )}
                     </div>
                     
-                    <button className="w-full mt-4 py-2 px-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-300 hover:from-blue-600 hover:to-purple-700 transform hover:scale-[1.02]">
-                      알림 설정
+                    <button 
+                      onClick={() => toggleNotification(event.id, event.title)}
+                      className={`w-full mt-4 py-2 px-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-300 hover:from-blue-600 hover:to-purple-700 transform hover:scale-[1.02] ${
+                        isLoading ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "설정 중..." : notificationSettings.has(event.id) ? "알림 해제" : "알림 설정"}
                     </button>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="space-y-4">
-                {filteredEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className={`${darkMode ? 'bg-gray-700/30' : 'bg-gray-50/50'} backdrop-blur-sm p-6 rounded-2xl border ${darkMode ? 'border-gray-600/50' : 'border-gray-200/50'} hover:shadow-xl transition-all duration-300 hover:transform hover:scale-[1.01] group`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-3 flex-wrap">
-                          <span className="text-2xl group-hover:scale-110 transition-transform duration-300">
-                            {event.icon}
-                          </span>
-                          <h3 className="text-lg font-bold group-hover:text-blue-600 transition-colors duration-300">
-                            {event.title}
-                          </h3>
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${getCategoryColor(event.category)}`}
-                          >
-                            {getCategoryIcon(event.category)}
-                            <span className="ml-1">{event.category}</span>
-                          </span>
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${getPriorityColor(event.priority)}`}
-                          >
-                            {event.priority}
-                          </span>
-                        </div>
-                        <p className="opacity-75 mb-3">{event.description}</p>
-                        <div className="flex items-center text-sm opacity-60">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          <span>
-                            {new Date(event.startDate).toLocaleDateString('ko-KR')}
-                            {event.endDate && ` ~ ${new Date(event.endDate).toLocaleDateString('ko-KR')}`}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right ml-6">
-                        {event.daysLeft !== undefined && (
-                          <div
-                            className={`text-sm font-medium mb-3 ${
-                              event.daysLeft <= 7
-                                ? "text-red-600"
-                                : event.daysLeft <= 30
-                                  ? "text-orange-600"
-                                  : "text-gray-600"
-                            }`}
-                          >
-                            {event.daysLeft > 0 ? `${event.daysLeft}일 남음` : "진행중"}
-                          </div>
-                        )}
-                        <button className="py-2 px-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-300 hover:from-blue-600 hover:to-purple-700 transform hover:scale-[1.05] text-sm">
-                          알림 설정
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <CalendarView />
             )}
             
             {filteredEvents.length === 0 && (
