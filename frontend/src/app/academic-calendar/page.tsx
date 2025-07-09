@@ -296,6 +296,8 @@ export default function AcademicCalendarPage() {
   // 캘린더 관련 상태
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [modalType, setModalType] = useState<'all' | 'upcoming' | 'notifications' | 'important' | null>(null)
 
   const categories = ["전체", "성적", "수강신청", "시험", "축제", "공휴일", "등록", "실습", "개강", "졸업", "기타"]
 
@@ -388,6 +390,42 @@ export default function AcademicCalendarPage() {
     }
   }, [])
 
+  // 모바일 감지
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 640)
+    }
+    
+    checkIsMobile()
+    window.addEventListener('resize', checkIsMobile)
+    
+    return () => window.removeEventListener('resize', checkIsMobile)
+  }, [])
+
+  // 모달 ESC 키 닫기
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setModalType(null)
+        setSelectedDate(null)
+      }
+    }
+    
+    if (modalType || selectedDate) {
+      document.addEventListener('keydown', handleEsc)
+      return () => document.removeEventListener('keydown', handleEsc)
+    }
+  }, [modalType, selectedDate])
+
+  // 지나간 일정인지 확인하는 함수
+  const isPastEvent = useCallback((event: AcademicEvent) => {
+    const today = new Date()
+    const eventEndDate = event.endDate ? new Date(event.endDate) : new Date(event.startDate)
+    today.setHours(0, 0, 0, 0)
+    eventEndDate.setHours(23, 59, 59, 999)
+    return eventEndDate < today
+  }, [])
+
   const getFilteredEvents = useCallback(() => {
     let filtered = academicEvents
     
@@ -402,8 +440,28 @@ export default function AcademicCalendarPage() {
       )
     }
     
-    return filtered.sort((a, b) => (a.daysLeft || 0) - (b.daysLeft || 0))
-  }, [academicEvents, selectedCategory, searchTerm])
+    // 완료된 일정을 뒤로 정렬 (진행중/예정 일정이 먼저 표시)
+    return filtered.sort((a, b) => {
+      const aIsPast = isPastEvent(a)
+      const bIsPast = isPastEvent(b)
+      
+      // 완료 상태가 다르면 완료되지 않은 것이 먼저
+      if (aIsPast !== bIsPast) {
+        return aIsPast ? 1 : -1
+      }
+      
+      // 같은 완료 상태면 날짜순 정렬 (가까운 날짜가 먼저)
+      if (!aIsPast && !bIsPast) {
+        // 진행중/예정 일정은 daysLeft 기준으로 정렬
+        return (a.daysLeft || 0) - (b.daysLeft || 0)
+      } else {
+        // 완료된 일정은 날짜순으로 정렬 (최신 완료가 먼저)
+        const aDate = new Date(a.startDate)
+        const bDate = new Date(b.startDate)
+        return bDate.getTime() - aDate.getTime()
+      }
+    })
+  }, [academicEvents, selectedCategory, searchTerm, isPastEvent])
 
   const getUpcomingEvents = useCallback(() => {
     return academicEvents
@@ -446,6 +504,54 @@ export default function AcademicCalendarPage() {
     }
     return colors[category as keyof typeof colors] || colors.기타
   }, [darkMode])
+
+  // 선택된 날짜에서 더 잘 보이는 색상 (다크모드용)
+  const getCategoryColorForSelected = useCallback((category: string) => {
+    const colors = {
+      성적: "bg-blue-600 text-white border-blue-500",
+      수강신청: "bg-purple-600 text-white border-purple-500",
+      시험: "bg-red-600 text-white border-red-500",
+      축제: "bg-pink-600 text-white border-pink-500",
+      공휴일: "bg-indigo-600 text-white border-indigo-500",
+      등록: "bg-orange-600 text-white border-orange-500",
+      실습: "bg-teal-600 text-white border-teal-500",
+      개강: "bg-green-600 text-white border-green-500",
+      졸업: "bg-yellow-600 text-white border-yellow-500",
+      기타: "bg-gray-600 text-white border-gray-500"
+    }
+    return colors[category as keyof typeof colors] || colors.기타
+  }, [])
+
+  // 통계 카드 데이터 (완료된 일정은 뒤로 정렬)
+  const statsData = useMemo(() => {
+    const sortEvents = (events: AcademicEvent[]) => {
+      return events.sort((a, b) => {
+        const aIsPast = isPastEvent(a)
+        const bIsPast = isPastEvent(b)
+        
+        // 완료 상태가 다르면 완료되지 않은 것이 먼저
+        if (aIsPast !== bIsPast) {
+          return aIsPast ? 1 : -1
+        }
+        
+        // 같은 완료 상태면 날짜순 정렬
+        if (!aIsPast && !bIsPast) {
+          return (a.daysLeft || 0) - (b.daysLeft || 0)
+        } else {
+          const aDate = new Date(a.startDate)
+          const bDate = new Date(b.startDate)
+          return bDate.getTime() - aDate.getTime()
+        }
+      })
+    }
+
+    return {
+      all: sortEvents([...academicEvents]),
+      upcoming: upcomingEvents, // 이미 정렬됨
+      notifications: sortEvents(academicEvents.filter(event => notificationSettings.has(event.id))),
+      important: sortEvents(academicEvents.filter(event => event.priority === "높음"))
+    }
+  }, [academicEvents, upcomingEvents, notificationSettings, isPastEvent])
 
   const getCategoryIcon = useCallback((category: string) => {
     const icons = {
@@ -604,9 +710,9 @@ export default function AcademicCalendarPage() {
               <div
                 key={index}
                 onClick={() => setSelectedDate(day)}
-                className={`min-h-[120px] p-2 rounded-xl border-2 transition-all duration-300 cursor-pointer hover:scale-[1.02] ${
+                className={`min-h-[80px] sm:min-h-[100px] lg:min-h-[120px] p-1 sm:p-2 rounded-lg sm:rounded-xl border-2 transition-all duration-300 cursor-pointer hover:scale-[1.02] ${
                   isSelected
-                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                    ? "border-blue-500 bg-blue-50/90 dark:bg-gray-800/90 dark:border-blue-400"
                     : isTodayDate
                       ? "border-blue-300 bg-blue-25 dark:bg-blue-900/10"
                       : darkMode
@@ -615,35 +721,51 @@ export default function AcademicCalendarPage() {
                 } ${!isCurrentMonth && "opacity-40"}`}
               >
                 {/* 날짜 */}
-                <div className={`text-sm font-semibold mb-2 ${
+                <div className={`text-xs sm:text-sm font-semibold mb-1 sm:mb-2 ${
                   isTodayDate
                     ? "text-blue-600 dark:text-blue-400"
                     : index % 7 === 0
                       ? "text-red-500"
                       : index % 7 === 6
                         ? "text-blue-500"
-                        : darkMode ? "text-gray-300" : "text-gray-700"
+                        : isSelected && darkMode
+                          ? "text-gray-100"
+                          : darkMode ? "text-gray-300" : "text-gray-700"
                 }`}>
                   {day.getDate()}
                 </div>
 
                 {/* 일정들 */}
-                <div className="space-y-1">
-                  {dayEvents.slice(0, 3).map((event) => (
-                    <div
-                      key={event.id}
-                      className={`px-2 py-1 rounded-lg text-xs font-medium truncate transition-all duration-300 hover:scale-105 ${getCategoryColor(event.category)}`}
-                      title={event.title}
-                    >
-                      <span className="mr-1">{event.icon}</span>
-                      {event.title}
-                    </div>
-                  ))}
-                  {dayEvents.length > 3 && (
-                    <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                      darkMode ? "bg-gray-600 text-gray-300" : "bg-gray-200 text-gray-700"
+                <div className="space-y-0.5 sm:space-y-1">
+                  {dayEvents.slice(0, isMobile ? 2 : 3).map((event) => {
+                    const isPast = isPastEvent(event)
+                    return (
+                      <div
+                        key={event.id}
+                        className={`px-1 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium truncate transition-all duration-300 hover:scale-105 ${
+                          isPast
+                            ? 'bg-gray-400/30 text-gray-500 border border-gray-400/30 line-through opacity-60'
+                            : isSelected && darkMode
+                              ? getCategoryColorForSelected(event.category)
+                              : getCategoryColor(event.category)
+                        }`}
+                        title={`${event.title}${isPast ? ' (완료됨)' : ''}`}
+                      >
+                        <span className={`mr-1 text-xs ${isPast ? 'grayscale' : ''}`}>{event.icon}</span>
+                        <span className="hidden sm:inline">{event.title}</span>
+                        <span className="sm:hidden">{event.title.slice(0, 6)}...</span>
+                      </div>
+                    )
+                  })}
+                  {dayEvents.length > (isMobile ? 2 : 3) && (
+                    <div className={`px-1 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${
+                      isSelected && darkMode
+                        ? "bg-gray-600 text-gray-200 border border-gray-500"
+                        : darkMode 
+                          ? "bg-gray-600 text-gray-300" 
+                          : "bg-gray-200 text-gray-700"
                     }`}>
-                      +{dayEvents.length - 3}개 더
+                      +{dayEvents.length - (isMobile ? 2 : 3)}개
                     </div>
                   )}
                 </div>
@@ -669,49 +791,79 @@ export default function AcademicCalendarPage() {
             
             {getEventsForDate(selectedDate).length > 0 ? (
               <div className="space-y-3">
-                {getEventsForDate(selectedDate).map((event) => (
-                  <div
-                    key={event.id}
-                    className={`p-4 rounded-xl border transition-all duration-300 hover:shadow-md ${
-                      darkMode ? 'bg-gray-700/30 border-gray-600/50' : 'bg-gray-50/50 border-gray-200/50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-lg">{event.icon}</span>
-                          <h5 className="font-semibold">{event.title}</h5>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(event.category)}`}>
-                            {event.category}
-                          </span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(event.priority)}`}>
-                            {event.priority}
+                {getEventsForDate(selectedDate).map((event) => {
+                  const isPast = isPastEvent(event)
+                  return (
+                    <div
+                      key={event.id}
+                      className={`p-4 rounded-xl border transition-all duration-300 hover:shadow-md ${
+                        isPast 
+                          ? darkMode ? 'bg-gray-800/20 border-gray-700/30 opacity-70' : 'bg-gray-100/50 border-gray-300/30 opacity-70'
+                          : darkMode ? 'bg-gray-700/30 border-gray-600/50' : 'bg-gray-50/50 border-gray-200/50'
+                      }`}
+                    >
+                      {isPast && (
+                        <div className="flex items-center mb-3">
+                          <span className="px-3 py-1 bg-gray-500/20 text-gray-500 rounded-full text-xs font-medium border border-gray-400/30">
+                            ✓ 완료된 일정
                           </span>
                         </div>
-                        <p className="text-sm opacity-75 mb-2">{event.description}</p>
-                        <div className="flex items-center text-sm opacity-60">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          <span>
-                            {new Date(event.startDate).toLocaleDateString('ko-KR')}
-                            {event.endDate && ` ~ ${new Date(event.endDate).toLocaleDateString('ko-KR')}`}
-                          </span>
+                      )}
+                      
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3 flex-wrap px-1">
+                            <span className={`text-xl flex-shrink-0 ${isPast ? 'grayscale' : ''}`}>{event.icon}</span>
+                            <h5 className={`font-semibold text-base ${isPast ? 'text-gray-500 line-through' : ''}`}>{event.title}</h5>
+                            <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                              isPast 
+                                ? 'bg-gray-400/20 text-gray-500 border border-gray-400/30'
+                                : getCategoryColor(event.category)
+                            }`}>
+                              {event.category}
+                            </span>
+                            <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                              isPast 
+                                ? 'bg-gray-400/20 text-gray-500 border border-gray-400/30'
+                                : getPriorityColor(event.priority)
+                            }`}>
+                              {event.priority}
+                            </span>
+                          </div>
+                          <p className={`text-sm mb-3 px-1 leading-relaxed ${isPast ? 'opacity-50' : 'opacity-75'}`}>{event.description}</p>
+                          <div className={`flex items-center text-sm px-1 ${isPast ? 'opacity-40' : 'opacity-60'}`}>
+                            <Calendar className="h-4 w-4 mr-1" />
+                            <span>
+                              {new Date(event.startDate).toLocaleDateString('ko-KR')}
+                              {event.endDate && ` ~ ${new Date(event.endDate).toLocaleDateString('ko-KR')}`}
+                            </span>
+                            {isPast && (
+                              <span className="ml-3 font-medium text-gray-500">
+                                • 완료됨
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        <button 
+                          onClick={() => toggleNotification(event.id, event.title)}
+                          className={`py-2 px-4 ${
+                            isPast 
+                              ? 'bg-gray-400/50 text-gray-600 cursor-not-allowed'
+                              : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transform hover:scale-105'
+                          } rounded-xl hover:shadow-lg transition-all duration-300 text-sm ${
+                            isLoading ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                          disabled={isLoading || isPast}
+                        >
+                          {isPast ? "완료된 일정" : isLoading ? "설정 중..." : notificationSettings.has(event.id) ? "알림 해제" : "알림 설정"}
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => toggleNotification(event.id, event.title)}
-                        className={`py-2 px-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-300 hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 text-sm ${
-                          isLoading ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? "설정 중..." : notificationSettings.has(event.id) ? "알림 해제" : "알림 설정"}
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 px-4 text-gray-500">
                 이 날에는 일정이 없습니다.
               </div>
             )}
@@ -773,7 +925,7 @@ export default function AcademicCalendarPage() {
           </button>
         </header>
 
-        <div className="max-w-7xl mx-auto py-8 px-4 space-y-8">
+        <div className="max-w-7xl mx-auto py-8 px-6 space-y-8">
           {/* 긴급 알림 - 조건 개선 */}
           {showNotifications && upcomingEvents.length > 0 && (
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-500/90 to-red-500/90 backdrop-blur-md border border-white/20 shadow-2xl">
@@ -793,16 +945,21 @@ export default function AcademicCalendarPage() {
                             key={event.id}
                             className="bg-white/15 backdrop-blur-sm p-4 rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-300 transform hover:scale-[1.02]"
                           >
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center">
-                                <span className="text-2xl mr-3">{event.icon}</span>
-                                <div>
-                                  <span className="font-semibold block">{event.title}</span>
-                                  <span className="text-sm opacity-75">{event.description}</span>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 px-2">
+                              <div className="flex items-start sm:items-center flex-1 min-w-0">
+                                <span className="text-2xl mr-4 flex-shrink-0">{event.icon}</span>
+                                <div className="flex-1 min-w-0 pr-2">
+                                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                                    <span className="font-semibold text-white break-words text-base">{event.title}</span>
+                                    <span className="px-3 py-1 bg-white/30 backdrop-blur-sm rounded-lg text-xs font-medium text-white/90 border border-white/20 whitespace-nowrap">
+                                      {event.category}
+                                    </span>
+                                  </div>
+                                  <span className="text-sm text-white/80 block leading-relaxed">{event.description}</span>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <span className="text-sm bg-white/20 px-3 py-1 rounded-full font-medium backdrop-blur-sm">
+                              <div className="flex-shrink-0 text-right sm:text-center">
+                                <span className="text-sm bg-white/25 border border-white/30 px-4 py-2 rounded-full font-medium backdrop-blur-sm text-white inline-block">
                                   {event.daysLeft && event.daysLeft > 0 ? `${event.daysLeft}일 남음` : "진행중"}
                                 </span>
                               </div>
@@ -837,7 +994,10 @@ export default function AcademicCalendarPage() {
 
           {/* 통계 카드 - 반응형 개선 */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-            <div className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
+            <button 
+              onClick={() => setModalType('all')}
+              className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl focus:ring-2 focus:ring-blue-500/50 focus:outline-none text-left w-full`}
+            >
               <div className="flex items-center">
                 <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mr-3 lg:mr-4 shadow-lg">
                   <Calendar className="h-5 w-5 lg:h-7 lg:w-7 text-white" />
@@ -849,9 +1009,12 @@ export default function AcademicCalendarPage() {
                   </p>
                 </div>
               </div>
-            </div>
+            </button>
             
-            <div className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
+            <button 
+              onClick={() => setModalType('upcoming')}
+              className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl focus:ring-2 focus:ring-orange-500/50 focus:outline-none text-left w-full`}
+            >
               <div className="flex items-center">
                 <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mr-3 lg:mr-4 shadow-lg">
                   <Clock className="h-5 w-5 lg:h-7 lg:w-7 text-white" />
@@ -863,9 +1026,12 @@ export default function AcademicCalendarPage() {
                   </p>
                 </div>
               </div>
-            </div>
+            </button>
             
-            <div className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
+            <button 
+              onClick={() => setModalType('notifications')}
+              className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl focus:ring-2 focus:ring-green-500/50 focus:outline-none text-left w-full`}
+            >
               <div className="flex items-center">
                 <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mr-3 lg:mr-4 shadow-lg">
                   <Bell className="h-5 w-5 lg:h-7 lg:w-7 text-white" />
@@ -877,9 +1043,12 @@ export default function AcademicCalendarPage() {
                   </p>
                 </div>
               </div>
-            </div>
+            </button>
             
-            <div className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl`}>
+            <button 
+              onClick={() => setModalType('important')}
+              className={`${cardClasses} p-4 lg:p-6 rounded-2xl transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl focus:ring-2 focus:ring-purple-500/50 focus:outline-none text-left w-full`}
+            >
               <div className="flex items-center">
                 <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mr-3 lg:mr-4 shadow-lg">
                   <Star className="h-5 w-5 lg:h-7 lg:w-7 text-white" />
@@ -891,7 +1060,7 @@ export default function AcademicCalendarPage() {
                   </p>
                 </div>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* 검색 및 필터 - 접근성 개선 */}
@@ -934,13 +1103,13 @@ export default function AcademicCalendarPage() {
                   </select>
                 </div>
                 
-                <div className="flex bg-gray-200 dark:bg-gray-700 rounded-xl p-1" role="tablist" aria-label="보기 모드 선택">
+                <div className="flex bg-gray-200/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl p-1" role="tablist" aria-label="보기 모드 선택">
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`px-4 py-2 rounded-lg transition-all duration-300 focus:ring-2 focus:ring-blue-500/50 focus:outline-none flex items-center gap-2 ${
+                    className={`px-4 py-2 rounded-lg transition-all duration-300 focus:ring-2 focus:ring-blue-500/50 focus:outline-none flex items-center gap-2 font-medium ${
                       viewMode === "grid" 
-                        ? "bg-white dark:bg-gray-600 shadow-md" 
-                        : "hover:bg-white/50 dark:hover:bg-gray-600/50"
+                        ? "bg-white dark:bg-gray-700 shadow-lg border border-gray-200/50 dark:border-gray-500/50 text-gray-900 dark:text-gray-100" 
+                        : "hover:bg-white/70 dark:hover:bg-gray-700/70 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                     }`}
                     role="tab"
                     aria-selected={viewMode === "grid"}
@@ -951,10 +1120,10 @@ export default function AcademicCalendarPage() {
                   </button>
                   <button
                     onClick={() => setViewMode("calendar")}
-                    className={`px-4 py-2 rounded-lg transition-all duration-300 focus:ring-2 focus:ring-blue-500/50 focus:outline-none flex items-center gap-2 ${
+                    className={`px-4 py-2 rounded-lg transition-all duration-300 focus:ring-2 focus:ring-blue-500/50 focus:outline-none flex items-center gap-2 font-medium ${
                       viewMode === "calendar" 
-                        ? "bg-white dark:bg-gray-600 shadow-md" 
-                        : "hover:bg-white/50 dark:hover:bg-gray-600/50"
+                        ? "bg-white dark:bg-gray-700 shadow-lg border border-gray-200/50 dark:border-gray-500/50 text-gray-900 dark:text-gray-100" 
+                        : "hover:bg-white/70 dark:hover:bg-gray-700/70 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                     }`}
                     role="tab"
                     aria-selected={viewMode === "calendar"}
@@ -970,7 +1139,7 @@ export default function AcademicCalendarPage() {
 
           {/* 학사 일정 목록 */}
           <div className={`${cardClasses} rounded-2xl p-6`} id="calendar-content">
-            <h2 className="text-2xl font-bold mb-6 flex items-center">
+            <h2 className="text-2xl font-bold mb-6 flex items-center px-2">
               <Calendar className="w-6 h-6 mr-3 text-blue-600" />
               학사 일정
               <span className="ml-3 text-sm font-normal opacity-60">
@@ -979,79 +1148,119 @@ export default function AcademicCalendarPage() {
             </h2>
 
             {viewMode === "grid" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className={`${darkMode ? 'bg-gray-700/30' : 'bg-gray-50/50'} backdrop-blur-sm p-6 rounded-2xl border ${darkMode ? 'border-gray-600/50' : 'border-gray-200/50'} hover:shadow-xl transition-all duration-300 hover:transform hover:scale-[1.02] group`}
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center">
-                        <span className="text-3xl mr-3 group-hover:scale-110 transition-transform duration-300">
-                          {event.icon}
-                        </span>
-                        <div>
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${getCategoryColor(event.category)}`}
-                          >
-                            {getCategoryIcon(event.category)}
-                            <span className="ml-1">{event.category}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 px-2">
+                {filteredEvents.map((event) => {
+                  const isPast = isPastEvent(event)
+                  return (
+                    <div
+                      key={event.id}
+                      className={`${
+                        isPast 
+                          ? darkMode ? 'bg-gray-800/20 border-gray-700/30' : 'bg-gray-100/50 border-gray-300/30'
+                          : darkMode ? 'bg-gray-700/30 border-gray-600/50' : 'bg-gray-50/50 border-gray-200/50'
+                      } backdrop-blur-sm p-6 rounded-2xl border hover:shadow-xl transition-all duration-300 hover:transform hover:scale-[1.02] group ${
+                        isPast ? 'opacity-70' : ''
+                      }`}
+                    >
+                      {isPast && (
+                        <div className="flex items-center mb-3">
+                          <span className="px-3 py-1 bg-gray-500/20 text-gray-500 rounded-full text-xs font-medium border border-gray-400/30">
+                            ✓ 완료된 일정
                           </span>
                         </div>
-                      </div>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${getPriorityColor(event.priority)}`}
-                      >
-                        {event.priority}
-                      </span>
-                    </div>
-                    
-                    <h3 className="text-lg font-bold mb-2 group-hover:text-blue-600 transition-colors duration-300">
-                      {event.title}
-                    </h3>
-                    <p className="text-sm opacity-75 mb-4 line-clamp-2">{event.description}</p>
-                    
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center opacity-60">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        <span>
-                          {new Date(event.startDate).toLocaleDateString('ko-KR')}
-                          {event.endDate && ` ~ ${new Date(event.endDate).toLocaleDateString('ko-KR')}`}
-                        </span>
-                      </div>
-                      {event.daysLeft !== undefined && (
-                        <div
-                          className={`font-medium ${
-                            event.daysLeft <= 7
-                              ? "text-red-600"
-                              : event.daysLeft <= 30
-                                ? "text-orange-600"
-                                : "text-gray-600"
+                      )}
+                      
+                      <div className="flex items-start justify-between mb-4 px-1">
+                        <div className="flex items-center flex-1 min-w-0">
+                          <span className={`text-3xl mr-4 flex-shrink-0 group-hover:scale-110 transition-transform duration-300 ${
+                            isPast ? 'grayscale' : ''
+                          }`}>
+                            {event.icon}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span
+                              className={`px-3 py-1.5 rounded-full text-xs font-medium border backdrop-blur-sm inline-flex items-center ${
+                                isPast 
+                                  ? 'bg-gray-400/20 text-gray-500 border-gray-400/30'
+                                  : getCategoryColor(event.category)
+                              }`}
+                            >
+                              {getCategoryIcon(event.category)}
+                              <span className="ml-2">{event.category}</span>
+                            </span>
+                          </div>
+                        </div>
+                        <span
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border backdrop-blur-sm flex-shrink-0 ml-3 ${
+                            isPast 
+                              ? 'bg-gray-400/20 text-gray-500 border-gray-400/30'
+                              : getPriorityColor(event.priority)
                           }`}
                         >
-                          {event.daysLeft > 0 ? `${event.daysLeft}일 남음` : "진행중"}
+                          {event.priority}
+                        </span>
+                      </div>
+                      
+                      <h3 className={`text-lg font-bold mb-3 px-1 group-hover:text-blue-600 transition-colors duration-300 ${
+                        isPast ? 'text-gray-500 line-through' : ''
+                      }`}>
+                        {event.title}
+                      </h3>
+                      <p className={`text-sm mb-4 px-1 line-clamp-2 leading-relaxed ${
+                        isPast ? 'opacity-50' : 'opacity-75'
+                      }`}>{event.description}</p>
+                      
+                      <div className="flex items-center justify-between text-sm px-1">
+                        <div className={`flex items-center ${isPast ? 'opacity-40' : 'opacity-60'}`}>
+                          <Calendar className="h-4 w-4 mr-1" />
+                          <span>
+                            {new Date(event.startDate).toLocaleDateString('ko-KR')}
+                            {event.endDate && ` ~ ${new Date(event.endDate).toLocaleDateString('ko-KR')}`}
+                          </span>
                         </div>
-                      )}
+                        {event.daysLeft !== undefined && !isPast && (
+                          <div
+                            className={`font-medium ${
+                              event.daysLeft <= 7
+                                ? "text-red-600"
+                                : event.daysLeft <= 30
+                                  ? "text-orange-600"
+                                  : "text-gray-600"
+                            }`}
+                          >
+                            {event.daysLeft > 0 ? `${event.daysLeft}일 남음` : "진행중"}
+                          </div>
+                        )}
+                        {isPast && (
+                          <div className="font-medium text-gray-500">
+                            완료됨
+                          </div>
+                        )}
+                      </div>
+                      
+                      <button 
+                        onClick={() => toggleNotification(event.id, event.title)}
+                        className={`w-full mt-4 py-2 px-4 ${
+                          isPast 
+                            ? 'bg-gray-400/50 text-gray-600 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transform hover:scale-[1.02]'
+                        } rounded-xl hover:shadow-lg transition-all duration-300 ${
+                          isLoading ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
+                        disabled={isLoading || isPast}
+                      >
+                        {isPast ? "완료된 일정" : isLoading ? "설정 중..." : notificationSettings.has(event.id) ? "알림 해제" : "알림 설정"}
+                      </button>
                     </div>
-                    
-                    <button 
-                      onClick={() => toggleNotification(event.id, event.title)}
-                      className={`w-full mt-4 py-2 px-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-300 hover:from-blue-600 hover:to-purple-700 transform hover:scale-[1.02] ${
-                        isLoading ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? "설정 중..." : notificationSettings.has(event.id) ? "알림 해제" : "알림 설정"}
-                    </button>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <CalendarView />
             )}
             
             {filteredEvents.length === 0 && (
-              <div className="text-center py-12">
+              <div className="text-center py-12 px-4">
                 <div className="w-24 h-24 mx-auto mb-4 opacity-30">
                   <Calendar className="w-full h-full" />
                 </div>
@@ -1062,6 +1271,164 @@ export default function AcademicCalendarPage() {
             )}
           </div>
         </div>
+
+        {/* 통계 모달 */}
+        {modalType && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setModalType(null)
+            }}
+          >
+            <div 
+              className={`${cardClasses} rounded-2xl p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto mx-4`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold flex items-center">
+                  {modalType === 'all' && <><Calendar className="w-6 h-6 mr-3 text-blue-600" /> 전체 일정</>}
+                  {modalType === 'upcoming' && <><Clock className="w-6 h-6 mr-3 text-orange-600" /> 임박한 일정</>}
+                  {modalType === 'notifications' && <><Bell className="w-6 h-6 mr-3 text-green-600" /> 알림 설정된 일정</>}
+                  {modalType === 'important' && <><Star className="w-6 h-6 mr-3 text-purple-600" /> 중요 일정</>}
+                  <span className="ml-3 text-sm font-normal opacity-60">
+                    ({statsData[modalType].length}개)
+                  </span>
+                </h2>
+                <button
+                  onClick={() => setModalType(null)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300"
+                  aria-label="모달 닫기"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {statsData[modalType].length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-2">
+                  {statsData[modalType].map((event) => {
+                    const isPast = isPastEvent(event)
+                    return (
+                      <div
+                        key={event.id}
+                        className={`${
+                          isPast 
+                            ? darkMode ? 'bg-gray-800/20 border-gray-700/30' : 'bg-gray-100/50 border-gray-300/30'
+                            : darkMode ? 'bg-gray-700/30 border-gray-600/50' : 'bg-gray-50/50 border-gray-200/50'
+                        } backdrop-blur-sm p-4 rounded-xl border transition-all duration-300 hover:shadow-md ${
+                          isPast ? 'opacity-70' : ''
+                        }`}
+                      >
+                        {isPast && (
+                          <div className="flex items-center mb-2">
+                            <span className="px-2 py-1 bg-gray-500/20 text-gray-500 rounded-lg text-xs font-medium border border-gray-400/30">
+                              ✓ 완료
+                            </span>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-start justify-between mb-3 px-1">
+                          <div className="flex items-center flex-1 min-w-0">
+                            <span className={`text-2xl mr-4 flex-shrink-0 ${isPast ? 'grayscale' : ''}`}>
+                              {event.icon}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <span
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${
+                                  isPast 
+                                    ? 'bg-gray-400/20 text-gray-500 border-gray-400/30'
+                                    : getCategoryColor(event.category)
+                                }`}
+                              >
+                                {event.category}
+                              </span>
+                            </div>
+                          </div>
+                          <span
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex-shrink-0 ml-3 ${
+                              isPast 
+                                ? 'bg-gray-400/20 text-gray-500 border-gray-400/30'
+                                : getPriorityColor(event.priority)
+                            }`}
+                          >
+                            {event.priority}
+                          </span>
+                        </div>
+                        
+                        <h3 className={`text-lg font-semibold mb-2 px-1 ${
+                          isPast ? 'text-gray-500 line-through' : ''
+                        }`}>
+                          {event.title}
+                        </h3>
+                        <p className={`text-sm mb-3 px-1 leading-relaxed ${
+                          isPast ? 'opacity-50' : 'opacity-75'
+                        }`}>{event.description}</p>
+                        
+                        <div className="flex items-center justify-between text-sm px-1">
+                          <div className={`flex items-center ${isPast ? 'opacity-40' : 'opacity-60'}`}>
+                            <Calendar className="h-4 w-4 mr-1" />
+                            <span>
+                              {new Date(event.startDate).toLocaleDateString('ko-KR')}
+                              {event.endDate && ` ~ ${new Date(event.endDate).toLocaleDateString('ko-KR')}`}
+                            </span>
+                          </div>
+                          {event.daysLeft !== undefined && !isPast && (
+                            <div
+                              className={`font-medium ${
+                                event.daysLeft <= 7
+                                  ? "text-red-600"
+                                  : event.daysLeft <= 30
+                                    ? "text-orange-600"
+                                    : "text-gray-600"
+                              }`}
+                            >
+                              {event.daysLeft > 0 ? `${event.daysLeft}일 남음` : "진행중"}
+                            </div>
+                          )}
+                          {isPast && (
+                            <div className="font-medium text-gray-500">
+                              완료됨
+                            </div>
+                          )}
+                        </div>
+
+                        {modalType === 'notifications' && (
+                          <button 
+                            onClick={() => toggleNotification(event.id, event.title)}
+                            className={`w-full mt-3 py-2 px-4 ${
+                              isPast 
+                                ? 'bg-gray-400/50 text-gray-600 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'
+                            } rounded-lg hover:shadow-lg transition-all duration-300 text-sm ${
+                              isLoading ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
+                            disabled={isLoading || isPast}
+                          >
+                            {isPast ? "완료된 일정" : isLoading ? "해제 중..." : "알림 해제"}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-12 px-4">
+                  <div className="w-16 h-16 mx-auto mb-4 opacity-30">
+                    {modalType === 'all' && <Calendar className="w-full h-full" />}
+                    {modalType === 'upcoming' && <Clock className="w-full h-full" />}
+                    {modalType === 'notifications' && <Bell className="w-full h-full" />}
+                    {modalType === 'important' && <Star className="w-full h-full" />}
+                  </div>
+                  <p className="text-lg opacity-60">
+                    {modalType === 'all' && "등록된 일정이 없습니다."}
+                    {modalType === 'upcoming' && "임박한 일정이 없습니다."}
+                    {modalType === 'notifications' && "알림 설정된 일정이 없습니다."}
+                    {modalType === 'important' && "중요 일정이 없습니다."}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
