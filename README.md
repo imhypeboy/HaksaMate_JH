@@ -213,5 +213,5 @@ ERD 다이어그램은 `docs/erd.png` 참고. Flyway 기반 마이그레이션�
 
 | 역할 | 이름 | 연락 |
 | ---- | ---- | ---- |
-| Maintainer | 김현식 | <imhypeboy@gmail.com> |
-| Contributor | you? | PR 환영합니다 |
+| Maintainer | 강종호 | <kangjh0205@gmail.com> |
+
