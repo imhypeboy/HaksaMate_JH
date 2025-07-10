@@ -13,7 +13,7 @@
 > **HaksaMate** 는 대학생을 위한 통합 학사 서비스입니다. 캘린더, AI 학습 도우미, 커뮤니티, 중고 거래, 실시간 위치 기반 매칭 등 **10여 개의 모듈**을 단일 플랫폼에 녹였습니다.  
 > **Next.js 13**(App Router)와 **Spring Boot 3** 를 기반으로 구성하여 MPA 수준의 SEO와 SPA 수준의 UX를 동시에 달성했습니다.
 
-배포 주소 : <https://haksamate.app> (예시)  
+배포 주소 : http://192.168.170.1:3000/academic-calendar
 데모 영상 : `docs/demo.mp4`
 
 ---
