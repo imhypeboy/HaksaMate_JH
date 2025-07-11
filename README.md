@@ -17,7 +17,19 @@
 데모 영상 : `docs/demo.mp4`
 
 ---
-
+## 🏃 실행 방법 (Windows 기준)
+명령 프롬프트 또는 PowerShell 실행
+아래 명령어를 차례로 입력하세요:
+Apply to SubjectServi...
+Run
+개발 서버가 http://localhost:3000에서 실행됩니다.
+첫 실행 시 npm install로 의존성 설치가 필요합니다.
+> Tip:
+> Mac/Linux 사용자는
+> cd ~/HaksaMate-6/frontend && npm install && npm run dev
+> 명령어를 사용하면 됩니다.
+>
+> ---
 ## 🗂️ 목차
 
 1. [주요 기능](#-주요-기능)
