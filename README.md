@@ -5,7 +5,6 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/imhypeboy/HaksaMate_JH/ci.yml?label=build)](https://github.com/imhypeboy/HaksaMate_JH/actions)
 [![License](https://img.shields.io/github/license/imhypeboy/HaksaMate_JH)](LICENSE)
 [![Tech](https://img.shields.io/badge/stack-SpringBoot%20%7C%20Next.js%20%7C%20TypeScript-informational)](#%EF%B8%8F-기술-스택)
-<img width="2536" height="1485" alt="image" src="https://github.com/user-attachments/assets/39965722-c1fd-4e05-a78d-6e5edd4fd7ae" />
 
 ---
 
@@ -19,6 +18,7 @@
 <img width="2352" height="1649" alt="스크린샷 2025-07-09 164312" src="https://github.com/user-attachments/assets/900d5f18-580f-4ad0-90c1-1e9e0b0d2058" />
 <img width="2418" height="1556" alt="스크린샷 2025-07-09 193029" src="https://github.com/user-attachments/assets/28afa1b1-e38d-47f0-810d-e58dcd63209e" />
 <img width="2796" height="1465" alt="스크린샷 2025-07-02 154815" src="https://github.com/user-attachments/assets/064a80ae-6952-4fb1-b064-3fda79776f54" />
+<img width="2536" height="1485" alt="image" src="https://github.com/user-attachments/assets/37eadee6-c656-445e-85e4-a3b736e2f929" />
 
 
 ---
