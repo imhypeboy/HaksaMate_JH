@@ -14,11 +14,14 @@
 > **Next.js 13**(App Router)와 **Spring Boot 3** 를 기반으로 구성하여 MPA 수준의 SEO와 SPA 수준의 UX를 동시에 달성했습니다.
 
 배포 주소 : http://192.168.170.1:3000/academic-calendar
+<img width="2682" height="1506" alt="image" src="https://github.com/user-attachments/assets/828114ee-89c8-4c6a-a841-33648811e0dd" />
 <img width="2826" height="1484" alt="스크린샷 2025-07-11 103530" src="https://github.com/user-attachments/assets/1986853b-94aa-43af-92a9-63f349c40e94" />
 <img width="2352" height="1649" alt="스크린샷 2025-07-09 164312" src="https://github.com/user-attachments/assets/900d5f18-580f-4ad0-90c1-1e9e0b0d2058" />
 <img width="2418" height="1556" alt="스크린샷 2025-07-09 193029" src="https://github.com/user-attachments/assets/28afa1b1-e38d-47f0-810d-e58dcd63209e" />
 <img width="2796" height="1465" alt="스크린샷 2025-07-02 154815" src="https://github.com/user-attachments/assets/064a80ae-6952-4fb1-b064-3fda79776f54" />
 <img width="2536" height="1485" alt="image" src="https://github.com/user-attachments/assets/37eadee6-c656-445e-85e4-a3b736e2f929" />
+![Uploading image.png…]()
+
 
 
 ---
