@@ -5,6 +5,7 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/imhypeboy/HaksaMate_JH/ci.yml?label=build)](https://github.com/imhypeboy/HaksaMate_JH/actions)
 [![License](https://img.shields.io/github/license/imhypeboy/HaksaMate_JH)](LICENSE)
 [![Tech](https://img.shields.io/badge/stack-SpringBoot%20%7C%20Next.js%20%7C%20TypeScript-informational)](#%EF%B8%8F-기술-스택)
+<img width="2536" height="1485" alt="image" src="https://github.com/user-attachments/assets/39965722-c1fd-4e05-a78d-6e5edd4fd7ae" />
 
 ---
 
