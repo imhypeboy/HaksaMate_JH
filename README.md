@@ -20,9 +20,7 @@
 <img width="2418" height="1556" alt="스크린샷 2025-07-09 193029" src="https://github.com/user-attachments/assets/28afa1b1-e38d-47f0-810d-e58dcd63209e" />
 <img width="2796" height="1465" alt="스크린샷 2025-07-02 154815" src="https://github.com/user-attachments/assets/064a80ae-6952-4fb1-b064-3fda79776f54" />
 <img width="2536" height="1485" alt="image" src="https://github.com/user-attachments/assets/37eadee6-c656-445e-85e4-a3b736e2f929" />
-![Uploading image.png…]()
-
-
+<img width="2851" height="1446" alt="image" src="https://github.com/user-attachments/assets/ac09b44c-3c46-42cf-9879-2c4a2198992f" />
 
 ---
 ## 🏃 실행 방법 (Windows 기준)
